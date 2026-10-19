@@ -121,6 +121,18 @@ class UiTests(unittest.TestCase):
         self.assertIsNone(self.window.runtime)
         self.assertEqual(self.window.preview.toPlainText(),'')
 
+    def test_reviewed_result_and_explicit_copy_preserve_list_and_paragraph_breaks(self):
+        from unittest.mock import Mock
+        text = '1. Pay ₹500.\n2. Meet at 18:30.\n\nDone.'
+        result = dict(text=text,raw='original',review=True,warning='Review',
+                      cpu_fallback=False,gpu_used=False,total_ms=10)
+        self.window.finished(self.window.generation,result)
+        self.assertEqual(self.window.preview.toPlainText(),text)
+        clipboard = Mock()
+        with patch('localflow.app.QApplication.clipboard',return_value=clipboard):
+            self.window.copy_result()
+        clipboard.setText.assert_called_once_with(text)
+
 
 if __name__ == "__main__":
     unittest.main()

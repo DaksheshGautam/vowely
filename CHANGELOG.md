@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.2 — unreleased
+
+- Spoken bullet-list, numbered-list, new-paragraph and new-line cues in Natural/Developer cleanup.
+- Sequential list markers no longer fail numeric validation; amounts, signs, currencies, dates, times, phone digits and version literals remain protected.
+- Formatting requests retain context across live sentence boundaries, and copied output preserves line breaks.
+- Added synthetic local-Qwen checks and automated formatting/number-preservation regressions. Existing v0.1.0-alpha.1 release assets are unchanged.
+
 ## 0.1.0-alpha.1
 
 First Windows prerelease of Vowely.

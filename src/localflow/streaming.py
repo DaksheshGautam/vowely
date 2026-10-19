@@ -12,6 +12,7 @@ import threading
 import time
 
 from .engines import Cancelled, EngineError, pipeline
+from .formatting import has_layout_cues, join_blocks
 
 
 def rms(pcm):
@@ -214,7 +215,7 @@ class StreamingSession:
     def _snapshot(self):
         indices = sorted(self._raw)
         raw = ' '.join(self._raw[i] for i in indices if self._raw[i]).strip()
-        text = ' '.join(self._clean.get(i,value) for i,value in sorted(self._sentence_raw.items())).strip()
+        text = join_blocks(self._clean.get(i,value) for i,value in sorted(self._sentence_raw.items()))
         if self.segmenter.needs_recheck and not self._recheck_done: text = raw
         return {'raw':' '.join(x for x in (raw,self._partial) if x),
                 'text':' '.join(x for x in (text,self._partial) if x),
@@ -236,6 +237,14 @@ class StreamingSession:
             if before!=after: break
             stable += 1
         if final: stable = len(units)
+        # A list can span many sentences. Give Qwen its stable prefix as one
+        # block so item order, numbering and paragraph commands retain context.
+        # Growing prefixes replace stale work; unfinished text is still held.
+        if self.c.cleanup_enabled and self.c.mode!='Verbatim' and has_layout_cues(raw):
+            ready = raw if final else ' '.join(complete[:stable])
+            waiting = '' if final else ' '.join(complete[stable:]+([tail] if tail else []))
+            units = [part for part in (ready,waiting) if part]
+            stable = 1 if ready else 0
         changed = any(i>=len(units) or self._sentence_raw.get(i)!=units[i] for i in self._scheduled)
         if changed:
             self._revision += 1

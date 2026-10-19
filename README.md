@@ -2,6 +2,8 @@
 
 **v0.1.0-alpha.1 — Windows prerelease**
 
+The main branch also contains **0.1.0-alpha.2 development changes** for spoken list/paragraph formatting. Those changes are not included in the published alpha.1 ZIP.
+
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
 Audio and transcripts stay on your computer. No external inference APIs, telemetry, account, transcript history, or automatic downloads during dictation.
@@ -33,6 +35,12 @@ For source installation or transferring an already provisioned folder to an offl
 | Verbatim | Bypasses Qwen and keeps Whisper's recognised text. |
 
 When cleanup is disabled, every mode returns raw recognition. Names and vocabulary are local spelling hints, not guaranteed corrections. Provisional text can change; cleanup may introduce mistakes. Review the original and cleaned panes.
+
+### Spoken formatting (alpha.2 development)
+
+With cleanup enabled in Natural or Developer mode, say **“Make a bullet list. First point buy milk. Next point buy bread.”** for a two-line bullet list, or **“Make a numbered list…”** for `1.`, `2.` items. Say **“new paragraph”** for a blank line or **“new line”** for a line break within the current recording. Verbatim preserves the recognised words and bypasses these changes.
+
+Formatting requests keep sentence context together, and Stop includes any unfinished tail. List indices are treated separately from content numbers: sequential structural markers are allowed, while changed numeric literals are rejected and the original text is preserved. Cleanup is still approximate and needs review. This does not validate every possible change of meaning or number words spelled out as text.
 
 ## Insertion and privacy
 

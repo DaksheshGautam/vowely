@@ -1,10 +1,13 @@
 """Generate Windows executable version resources from the release identifier."""
 from pathlib import Path
 import sys
+import re
 from localflow.version import RELEASE_VERSION
 
+parts = [int(part) for part in re.findall(r'\d+',RELEASE_VERSION)]
+file_version = tuple((parts+[0,0,0,0])[:4])
 text = f'''VSVersionInfo(
-  ffi=FixedFileInfo(filevers=(0,1,0,1), prodvers=(0,1,0,1), mask=0x3f, flags=0x2, OS=0x40004, fileType=0x1, subtype=0x0, date=(0,0)),
+  ffi=FixedFileInfo(filevers={file_version}, prodvers={file_version}, mask=0x3f, flags=0x2, OS=0x40004, fileType=0x1, subtype=0x0, date=(0,0)),
   kids=[StringFileInfo([StringTable('040904B0',[
     StringStruct('CompanyName',''),
     StringStruct('FileDescription','Vowely offline dictation'),
