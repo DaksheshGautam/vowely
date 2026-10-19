@@ -1,0 +1,46 @@
+# Personal/local data and credentials
+config.json
+config.tmp
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.lnk
+*.log
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+
+# Downloaded assets, environments and build products
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+models/
+vendor/
+.downloads/
+build/
+dist/
+app/
+app-*/
+wheelhouse/
+release-assets/
+*.zip
+*.exe
+*.dll
+*.bin
+*.gguf
+
+# Machine-specific history and development conversation artifacts
+benchmarks/
+benchmark*.json
+*_IMPLEMENTATION_PROMPT.md
+VALIDATION.md
+LIVE_STREAMING_TEST.md
+SENTENCE_CLEANUP.md
+Start LocalFlow.vbs

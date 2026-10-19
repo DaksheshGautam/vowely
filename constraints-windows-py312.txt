@@ -1,0 +1,9 @@
+# Observed installed versions in the Windows Python 3.12.14 verification environment.
+# This is a constraints set, not a hash-locked supply-chain manifest.
+PySide6-Essentials==6.12.0
+shiboken6==6.12.0
+sounddevice==0.5.6
+comtypes==1.4.17
+psutil==7.2.2
+cffi==2.1.1
+pycparser==3.11
