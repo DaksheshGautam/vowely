@@ -364,6 +364,8 @@ class DesktopUI:
         inner.addWidget(button('Run local checks',w.check_assets),0,Qt.AlignLeft)
         self.help_checks=label('No checks run yet.','muted');inner.addWidget(self.help_checks)
         inner.addWidget(button('Audio input & microphone test',lambda:self.show_settings(0)),0,Qt.AlignLeft);layout.addWidget(box)
+        box,inner=card('Install or repair models','For the installed app: Quit Vowely from the tray, then open “Finish Vowely setup” from Start. That screen checks existing files and asks before downloading missing models or optional NVIDIA support. Portable/source users can use the explicit setup script. Downloads never start while dictating.')
+        layout.addWidget(box)
         box,inner=card('When something needs attention')
         for text in ['No input: choose a connected microphone, check its level, then run the three-second test.',
                      'Nothing typed: keep focus in the same editable box and release all shortcut keys. Manual tests are preview-only.',

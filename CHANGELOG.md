@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.12 — installer prerelease
+
+- Per-user Windows setup executable, Start-menu entries, optional desktop shortcut, upgrade guard and uninstaller. No separate Python installation or manual setup script.
+- Explicit asynchronous model/engine setup with SHA-256 verification, existing-folder reuse, cancellation/resume, retry and independent NVIDIA options. Whisper Base/Small, Qwen and Silero are included in setup; downloads never start during dictation.
+- Separate local application-data directory; existing installed configuration is preserved, with optional import of a portable profile. Uninstall retains local data for reuse.
+
 ## 0.1.0-alpha.11 — unreleased
 
 - Configurable hold-to-dictate and optional press-to-start / press-again-to-stop shortcuts, available together in Settings / Dictation, with a keyboard picker and dashboard instructions. Existing hold shortcuts are preserved; toggle starts disabled.

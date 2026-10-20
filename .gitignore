@@ -48,3 +48,12 @@ VALIDATION.md
 LIVE_STREAMING_TEST.md
 SENTENCE_CLEANUP.md
 Start LocalFlow.vbs
+
+# Installer metadata/cache are local data
+setup-state.json
+setup-state.tmp
+engine-files.json
+installed-layout.json
+*.part
+*.copying
+*.installing

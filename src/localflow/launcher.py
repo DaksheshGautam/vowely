@@ -11,7 +11,17 @@ def main():
         print(RELEASE_VERSION)
         return 0
     if getattr(sys, 'frozen', False) and '--root' not in sys.argv:
-        sys.argv += ['--root', str(Path(sys.executable).resolve().parents[2])]
+        from .installation import default_root
+        sys.argv += ['--root', str(default_root(sys.executable))]
+    if '--setup-wizard' in sys.argv:
+        import argparse
+        parser=argparse.ArgumentParser(description='Explicit model and engine setup')
+        parser.add_argument('--setup-wizard',action='store_true')
+        parser.add_argument('--root',type=Path,required=True)
+        parser.add_argument('--manifest',type=Path,default=Path(sys.executable).parent/'assets-manifest.json')
+        args=parser.parse_args()
+        from .setup_ui import run
+        return run(args.root.resolve(),args.manifest)
     if '--provision-assets' in sys.argv:
         import argparse
         from contextlib import redirect_stdout, redirect_stderr
@@ -39,6 +49,15 @@ def main():
         args = parser.parse_args()
         from .selftest import run
         return run(args.root.resolve(), args.self_test_report)
+    if getattr(sys,'frozen',False):
+        from .installation import installed,needs_assets
+        if installed(sys.executable):
+            import argparse
+            parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,required=True)
+            args=parser.parse_args()
+            if needs_assets(args.root):
+                from .setup_ui import run
+                return run(args.root.resolve(),Path(sys.executable).parent/'assets-manifest.json')
     from .app import main as app_main
     return app_main()
 

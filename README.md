@@ -1,20 +1,20 @@
 # Vowely
 
-**v0.1.0-alpha.1 — Windows prerelease**
+**v0.1.0-alpha.12 — Windows installer prerelease**
 
-The main branch also contains **0.1.0-alpha.11 development changes** for configurable hold/toggle shortcuts, a redesigned dark desktop, guided first-run setup, draft-based spelling learning, final-result typing and a voice-reactive indicator. These changes are not included in the published alpha.1 ZIP.
+Download the Windows **Setup-x64.exe** from [Releases](https://github.com/DaksheshGautam/vowely/releases). It installs Vowely, Start-menu shortcuts and an uninstaller without a separate Python installation. On completion, the setup screen downloads missing models and engines after you choose **Start setup**. Existing verified files can be reused. The installer includes the current desktop, hold/toggle shortcuts, correction learning and final-result typing.
 
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
-Audio and transcripts stay on your computer. No external inference APIs, telemetry, account, transcript history, or automatic downloads during dictation.
+Audio and transcripts stay on your computer. No external inference APIs, telemetry, account, transcript history, or downloads during dictation.
 
 ## Download and start
 
-1. Download **vowely-0.1.0-alpha.1-windows-x64.zip** from the [prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v0.1.0-alpha.1), and extract the complete ZIP to a writable folder.
-2. Run **Setup models and engines.ps1** in that folder. This is an explicit, online, one-time download of about 3.3 GB of pinned assets. Allow at least 10 GB of free disk space. The Windows package includes its Python runtime; a separate Python installation is not required.
-3. Double-click **Start Vowely.vbs**. Wait for the models to be ready. Choose your microphone, click **Record a test**, speak, then click **Stop recording**. Review and copy the result.
+1. Download **Vowely-0.1.0-alpha.12-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v0.1.0-alpha.12) and run it.
+2. Finish installation, then choose **Start setup** in the model setup screen. It downloads only missing verified models/engines; choose an existing Vowely folder to reuse files. NVIDIA support is optional. No separate Python or developer tools are needed.
+3. Choose **Open Vowely**, complete microphone/shortcut setup, then dictate with your hold or toggle shortcut. Start-menu shortcuts reopen the app or model setup later.
 
-The portable ZIP contains the app runtime and setup tools, **not the large models or inference engines**. Internet is needed for the explicit setup step. After setup, recognition and cleanup run offline. Use the published SHA256SUMS.txt to verify release assets. This is an unsigned alpha, not an installer.
+The setup executable contains the desktop runtime. Large models/engines are obtained during explicit setup. Internet is needed for missing setup files; dictation then runs offline. The installer is unsigned prerelease software. Published SHA256SUMS.txt verifies the download. The older alpha.1 portable ZIP remains available as a legacy option.
 
 For source installation or transferring an already provisioned folder to an offline PC, see [SETUP.md](SETUP.md).
 
@@ -89,3 +89,9 @@ Windows x64, a microphone supporting 16 kHz mono PCM16, and sufficient RAM/stora
 The alpha includes source, tests, setup and packaging scripts, and a pinned asset manifest. Broad accent/noise accuracy scoring, signed distribution, broad target-app compatibility and Android support remain unfinished.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [DEVELOPMENT.md](DEVELOPMENT.md), and [THIRD_PARTY.md](THIRD_PARTY.md). The internal Python package remains `localflow` for compatibility; the product and repository are Vowely.
+
+## Installer setup (alpha.12)
+
+Run the Setup-x64.exe from Releases. An optional desktop shortcut is offered. The final page opens the explicit model setup screen: CPU support plus Whisper Base/Small, Qwen and Silero are included in the plan; select NVIDIA options independently if wanted. Choose your existing Vowely folder to reuse checksum-matching models, extracted engines or cached archives. Importing settings/learned words is an explicit optional choice and never overwrites an installed profile. Start setup checks files in a worker, downloads only missing assets, verifies SHA-256, supports cancellation/resume, and reports errors with Retry. Core downloads are about 1.8 GB; both NVIDIA options bring the maximum to about 3.3 GB. Allow up to 10 GB free space. No GPU driver is installed.
+
+Program files live under Windows local application data / Programs / Vowely; models and private settings live separately under local application data / Vowely. Start opens Vowely; “Finish Vowely setup” revisits repair/downloads after quitting from the tray. An incomplete first launch opens the setup screen without downloading until Start setup is chosen. Upgrade/uninstall checks the installed-app mutex. Uninstall removes program files/shortcuts and preserves local models, vocabulary and settings for reuse. No startup task is added. The app and installer are currently unsigned.

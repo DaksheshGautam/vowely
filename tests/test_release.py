@@ -11,6 +11,19 @@ from localflow.version import RELEASE_VERSION
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_explicit_setup_wizard_never_starts_dictation_or_downloads_by_itself(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            with patch.object(sys,'argv',['vowely','--setup-wizard','--root',str(root),'--manifest',str(root/'assets.json')]),patch('localflow.setup_ui.run',return_value=0) as wizard,patch('localflow.app.main') as app,patch('urllib.request.urlopen') as network:
+                self.assertEqual(launcher.main(),0)
+            wizard.assert_called_once_with(root.resolve(),root/'assets.json');app.assert_not_called();network.assert_not_called()
+
+    def test_incomplete_installed_launch_opens_setup_without_downloading(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            with patch.object(sys,'argv',['vowely','--root',str(root)]),patch.object(sys,'frozen',True,create=True),patch('localflow.installation.installed',return_value=True),patch('localflow.setup_ui.run',return_value=0) as wizard,patch('urllib.request.urlopen') as network:
+                self.assertEqual(launcher.main(),0)
+            wizard.assert_called_once();network.assert_not_called()
     def test_version_flag_does_not_start_ui_or_provision(self):
         output = io.StringIO()
         with patch.object(sys,'argv',['vowely','--version']),redirect_stdout(output),patch('localflow.provision.main') as setup:

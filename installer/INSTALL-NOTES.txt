@@ -1,0 +1,14 @@
+Vowely - offline dictation for Windows
+
+This installs Vowely for your Windows account, with Start menu shortcuts and an uninstaller. No administrator password, separate Python installation, developer tools, or CUDA toolkit installation is required.
+
+After installation, choose Start setup to download missing Whisper Base/Small, Qwen3-1.7B, Silero VAD, and CPU engines. NVIDIA engine/runtime downloads are optional. Setup checks SHA-256 hashes and can reuse matching files from an existing Vowely folder. An internet connection and up to 10 GB free disk space are needed for a fresh setup. Keep the current NVIDIA driver if you use GPU acceleration.
+
+Downloads happen only in the explicit setup screen. Once complete, dictation runs offline. No microphone access, audio upload, telemetry, cloud sync, saved transcript history, or Windows startup task is enabled by installation.
+
+Program: Windows local app data / Programs / Vowely
+Models, settings, learned words and reusable downloads: Windows local app data / Vowely
+
+Updates preserve your settings and vocabulary. Uninstall removes the program and shortcuts and keeps local data so it can be reused after reinstalling. Quit Vowely from the tray before an update or uninstall.
+
+The app and installer are unsigned prerelease software. Model/runtime license terms and pinned download origins are described in THIRD_PARTY.md. Setup does not install a GPU driver or change system PATH.

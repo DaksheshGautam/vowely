@@ -871,6 +871,8 @@ def main():
         QMessageBox.critical(None, "Vowely could not start", f"Check config.json and Windows dependencies.\n{type(exc).__name__}")
         kernel.CloseHandle(mutex)
         return 1
+    from .installation import installed
+    install_guard=kernel.CreateMutexW(None,False,'Local\\Vowely-Installed') if installed(sys.executable) else None
     server = QLocalServer(app)
     server.setSocketOptions(QLocalServer.UserAccessOption)
     server_name = name.replace('Local\\', '') + '-show'
@@ -900,6 +902,7 @@ def main():
         return app.exec()
     finally:
         kernel.CloseHandle(mutex)
+        if install_guard:kernel.CloseHandle(install_guard)
 
 
 if __name__ == "__main__":
