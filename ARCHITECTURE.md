@@ -2,6 +2,8 @@
 
 ## Components
 
+The desktop is assembled in desktop.py and delegates every engine action to Window. ui_jobs.py handles bounded local file/dependency checks, explicit microphone diagnostics and asynchronous model teardown. Existing capture, ASR/Qwen inference, validation, focus insertion, draft watching and floating overlay remain separate. See UI_DESIGN.md for the complete feature-to-page mapping. Model preparation and teardown share an ordered lifecycle pool; cancellation signals are immediate, with blocking close/start operations on workers. Quit polls worker completion through Qt timers rather than waiting on the UI thread. The current text document is shared by its read-only Home/setup views, not copied into saved session history.
+
 | Module | Responsibility |
 |---|---|
 | app.py | Qt tray/window, explicit hotkey and microphone actions, model preparation, provisional preview and final-only insertion |

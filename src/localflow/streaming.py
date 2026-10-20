@@ -208,11 +208,11 @@ class StreamingSession:
             self._condition.notify_all()
         self._emit()
 
-    def abort(self):
+    def abort(self,close_runtime=True):
         self.cancel.set()
         with self._condition:
             self._condition.notify_all()
-        self.runtime.close()  # Interrupt active local requests and discard KV state.
+        if close_runtime: self.runtime.close()  # GUI schedules this on its lifecycle worker.
 
     def _snapshot(self):
         indices = sorted(self._raw)

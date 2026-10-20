@@ -20,7 +20,7 @@ def build(root,bundle,output):
     if not executable.is_file(): raise RuntimeError('Package Vowely first.')
     tracked = subprocess.run(['git','ls-files','-z'],cwd=root,check=True,capture_output=True).stdout.decode().split('\0')
     files = [Path(name) for name in tracked if name]
-    forbidden = {'config.json','dictionary.json','dictionary.tmp','models','vendor','.downloads','.venv','benchmarks','build','dist'}
+    forbidden = {'config.json','dictionary.json','dictionary.tmp','ui-state.json','ui-state.tmp','models','vendor','.downloads','.venv','benchmarks','build','dist'}
     for relative in files:
         if any(part in forbidden or part.startswith('app-') for part in relative.parts):
             raise RuntimeError('Local-only path is tracked: '+str(relative))

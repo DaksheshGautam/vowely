@@ -9,6 +9,8 @@
 
 ## Automatic field selection
 
+The redesigned desktop retains only the current result and original recognition in RAM. Home, the editor and setup share that same current document; there is no history database. First-run progress/completion is stored only as a boolean and format version in local ui-state.json, excluded from Git and release packaging. Existing installations keep their configuration. Local model/dependency checks inspect configured files without inference, microphone access or network requests. The explicit three-second microphone diagnostic uses Recorder in a worker and discards audio, retaining only a level/result message. Setup/sample recordings use the existing preview-only pipeline and retention rules. No update checker, startup registration, cloud option or model downloader is enabled by the new interface.
+
 Focus an editable text box and hold the shortcut to dictate. Vowely captures that control's window, process and UIA runtime identity and checks them again before typing the final result. No field approval or AutomationId is required. Legacy allowlist settings are removed during migration. Disable automatic typing in settings if you want preview-only dictation.
 
 Password, sensitive, denied, read-only and unknown controls remain blocked. Deny settings remain configurable:

@@ -4,6 +4,8 @@ Vowely is a Windows-first offline dictation application. The Python package rema
 
 Run the Windows unit suite after changes:
 
+UI_DESIGN.md records the desktop inventory and navigation mapping. tests/test_desktop.py covers exact configuration preservation (including custom paths and intermediate beam sizes), setup progression, shared RAM-only results, keyboard/compact navigation, vocabulary removal, no-network asset checks, cancellation and model lifecycle work off the Qt thread. Worker waits in tests are synchronization only; production uses asynchronous completion. Package smoke checks verify all six pages, four setup steps and bundled icon/theme assets.
+
 ```powershell
 .venv/Scripts/python.exe -m unittest discover -s tests -v
 ```

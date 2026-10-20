@@ -120,6 +120,7 @@ class UiTests(unittest.TestCase):
         runtime = self.window.runtime = Mock()
         self.window.preview.setPlainText('draft')
         self.window.forget_result()
+        self.window.lifecycle_pool.waitForDone(1000)  # Test synchronization only; production never waits on Qt.
         runtime.close.assert_called_once()
         self.assertIsNone(self.window.runtime)
         self.assertEqual(self.window.preview.toPlainText(),'')

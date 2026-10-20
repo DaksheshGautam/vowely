@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.0-alpha.10 — unreleased
+
+- Charcoal/lavender PySide6 desktop with Home, current-session Dictation, Vocabulary, Models, categorized Settings and Help pages; responsive sidebar, keyboard navigation, visible save actions and local error/loading states.
+- Revisit-able first-run setup with explicit microphone test, installed-model checks, shortcut validation and real preview dictation. Existing settings and custom paths are retained.
+- Model lifecycle operations and diagnostics run outside the Qt thread; shutdown remains cancellable during model preparation. Real processing timings are shown without latency guarantees.
+- Expanded tray navigation; original global shortcut, auto-type safeguards, dictionary behavior, icon, floating orb and words-added popup retained. No saved transcript history, telemetry, cloud sync or automatic downloads.
+
+## 0.1.0-alpha.9 — unreleased
+
+- Compare edited drafts on completion, learn multiple corrected words without a typing pause, and show newly added spellings in a nonactivating popup.
+
+## 0.1.0-alpha.8 — unreleased
+
+- Local spelling dictionary and per-request vocabulary hints.
+
 ## 0.1.0-alpha.7 — unreleased
 
 - User-supplied lavender V emblem for the window, tray, Windows executable and local shortcut icons.

@@ -22,7 +22,7 @@ from .audio import Recorder
 from .config import Config
 from .engines import Cancelled, pipeline
 from .policy import check_target
-from .windows import Windows
+from .windows import Windows, parse_hotkey
 from .devices import microphones, default_input_label
 from .resident import ResidentModels
 from .streaming import StreamingSession
@@ -31,6 +31,8 @@ from .overlay import DictationOverlay
 from .branding import application_icon, identify_windows_app
 from .learning import EditSession, LearnedDictionary, MAX_SPAN
 from .learning_popup import LearningPopup
+from .desktop import DesktopUI
+from .ui_jobs import AssetCheck, MicrophoneCheck, CloseModels
 
 
 class Signals(QObject):
@@ -126,6 +128,12 @@ class Window(QMainWindow):
                     QFontDatabase.addApplicationFont(str(path))
         QApplication.instance().setFont(QFont('Segoe UI', 10))
         self.root, self.config_path = root, config_path
+        self.needs_onboarding = not config_path.exists()
+        try:
+            import json
+            ui_state = json.loads((root/'ui-state.json').read_text(encoding='utf-8'))
+            if ui_state.get('onboarding_completed') is False: self.needs_onboarding = True
+        except (OSError,ValueError,AttributeError): pass
         self.c = Config.load(config_path)
         self.win = Windows()
         self.dictionary = LearnedDictionary(root/'dictionary.json')
@@ -149,127 +157,15 @@ class Window(QMainWindow):
         self.learning_popup = LearningPopup()
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
-        self.setWindowTitle(f"{APP_NAME} {RELEASE_VERSION} • Offline dictation")
-        self.resize(650, 780)
-        body = QWidget()
-        layout = QVBoxLayout(body)
-        layout.addWidget(QLabel("Audio and text stay local. No history is saved.\nFocus a text box, hold your shortcut to speak, then release to type."))
-        self.status = QLabel("Starting dictation • microphone off")
-        self.status.setTextFormat(Qt.PlainText)
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
-        form = QFormLayout()
-        self.mode = QComboBox()
-        self.mode.addItems(["Natural", "Verbatim", "Developer"])
-        self.mode.setCurrentText(self.c.mode)
-        form.addRow("Mode", self.mode)
-        self.model = QComboBox()
-        self.model.addItems(["base", "small"])
-        self.model.setCurrentText(self.c.asr_model)
-        form.addRow("Whisper model", self.model)
-        self.search_quality = QComboBox()
-        self.search_quality.addItem('Faster decoding', 1)
-        self.search_quality.addItem('More thorough decoding (slower)', 5)
-        self.search_quality.setCurrentIndex(0 if self.c.beam_size == 1 else 1)
-        form.addRow('Recognition quality', self.search_quality)
-        self.vocabulary = QLineEdit(', '.join(self.c.personal_vocabulary))
-        self.vocabulary.setPlaceholderText('Your full name, people, product names — separated by commas')
-        self.vocabulary.setToolTip('Stored only on this PC. Spelling hints can help recognition but cannot guarantee correct words.')
-        form.addRow('Names and vocabulary', self.vocabulary)
-        self.learn = QCheckBox('Learn spelling corrections after dictation')
-        self.learn.setChecked(self.c.learn_corrections)
-        self.learn.setToolTip('Compares your edited draft when the box clears or you leave it. Learns multiple corrected words without a typing pause. Only the dictated portion of a small eligible text box is learned.')
-        form.addRow(self.learn)
-        self.dictionary_button = QPushButton(f'Learned words ({len(self.dictionary.words)})')
-        self.dictionary_button.clicked.connect(self.manage_dictionary)
-        form.addRow(self.dictionary_button)
-        self.dictionary_status = QLabel('Corrected spellings stay on this PC.' if self.dictionary.available else 'Local dictionary could not be loaded; learning unavailable.')
-        self.dictionary_status.setTextFormat(Qt.PlainText)
-        self.dictionary_status.setWordWrap(True)
-        form.addRow(self.dictionary_status)
-        self.backend = QComboBox()
-        self.backend.addItems(["CPU", "NVIDIA CUDA (tested on this PC)"])
-        self.backend.setCurrentIndex(1 if self.c.gpu else 0)
-        form.addRow("Recognition backend", self.backend)
-        self.language = QLineEdit(self.c.language)
-        self.language.setPlaceholderText("auto, en, hi, or another Whisper language code")
-        form.addRow("Language", self.language)
-        self.vad = QCheckBox("Ignore silent sections with local voice detection")
-        self.vad.setChecked(bool(self.c.vad_model))
-        form.addRow(self.vad)
-        self.hotkey = QLineEdit(self.c.hotkey)
-        form.addRow("Push-to-talk shortcut", self.hotkey)
-        self.mic = QComboBox()
-        self.all_inputs = QCheckBox('Show all audio inputs (advanced)')
-        self.populate_microphones(self.c.microphone)
-        self.all_inputs.toggled.connect(self.change_microphone_view)
-        form.addRow("Microphone", self.mic)
-        form.addRow(self.all_inputs)
-        self.cleanup = QCheckBox("Use local Qwen cleanup")
-        self.cleanup.setToolTip('Final results type into the focused text box. If a cleanup edit is rejected, its original recognized words are used instead.')
-        self.cleanup.setChecked(self.c.cleanup_enabled)
-        form.addRow(self.cleanup)
-        self.cleanup_backend = QComboBox()
-        self.cleanup_backend.addItems(['CPU','NVIDIA CUDA (live mode)'])
-        self.cleanup_backend.setCurrentIndex(1 if self.c.cleanup_gpu else 0)
-        form.addRow('Cleanup backend',self.cleanup_backend)
-        self.live = QCheckBox('Live preview + Whisper decides sentence endings')
-        self.live.setChecked(self.c.streaming_enabled)
-        self.live.setToolTip('No fixed silence wait. Sentence-ending punctuation must agree across two Whisper previews before Qwen cleans the sentence. Qwen does not decide boundaries. Stop rechecks the complete recording and cleans any unfinished text. Detection is approximate; preview checks and model processing take time. Final insertion happens only after Stop.')
-        form.addRow(self.live)
-        self.insert = QCheckBox("Automatically type final results into the focused text box")
-        self.insert.setToolTip('Waits for final Whisper recognition and Qwen cleanup. No field approval is needed. Password fields and changed focus remain blocked.')
-        self.insert.setChecked(self.c.auto_insert)
-        form.addRow(self.insert)
-        layout.addLayout(form)
-        self.models_status = QLabel('Models are not loaded • microphone off')
-        self.models_status.setWordWrap(True)
-        self.models_status.setTextFormat(Qt.PlainText)
-        layout.addWidget(self.models_status)
-        model_actions = QHBoxLayout()
-        self.prepare_button = QPushButton('Load / reload models')
-        self.prepare_button.clicked.connect(self.prepare_live)
-        self.unload_button = QPushButton('Free model memory')
-        self.unload_button.clicked.connect(self.unload_models)
-        model_actions.addWidget(self.prepare_button);model_actions.addWidget(self.unload_button)
-        layout.addLayout(model_actions)
-        self.pause = QPushButton("Resume dictation")
-        self.pause.setToolTip('Dictation starts automatically. Pause only when you want to stop the shortcut or change settings.')
-        self.pause.clicked.connect(self.toggle_dictation)
-        layout.addWidget(self.pause)
-        self.record_button = QPushButton("Record a test • preview only")
-        self.record_button.clicked.connect(self.manual_record)
-        layout.addWidget(self.record_button)
-        self.file_button = QPushButton("Transcribe a local WAV file • preview only")
-        self.file_button.clicked.connect(self.transcribe_file)
-        layout.addWidget(self.file_button)
-        cancel = QPushButton("Cancel recording / processing")
-        cancel.clicked.connect(self.abort)
-        layout.addWidget(cancel)
-        layout.addWidget(QLabel("Result • edit or copy after review"))
-        actions = QHBoxLayout()
-        self.copy_button = QPushButton("Copy reviewed result")
-        self.copy_button.clicked.connect(self.copy_result)
-        actions.addWidget(self.copy_button)
-        self.clear_button = QPushButton("Clear text from memory")
-        self.clear_button.clicked.connect(self.forget_result)
-        actions.addWidget(self.clear_button)
-        layout.addLayout(actions)
-        self.preview = QTextEdit()
-        layout.addWidget(self.preview)
-        self.original = QTextEdit()
-        layout.addWidget(QLabel('Original speech recognition • compare this with the result above'))
-        self.original.setReadOnly(True)
-        self.original.setPlaceholderText("Original words from Whisper, before any cleanup.")
-        self.original.setMaximumHeight(100)
-        layout.addWidget(self.original)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(body)
-        self.setCentralWidget(scroll)
-        self.controls = [self.mode, self.model, self.hotkey, self.mic, self.cleanup, self.insert,
-                         self.backend, self.language, self.vad, self.all_inputs, self.search_quality, self.vocabulary,
-                         self.cleanup_backend,self.live,self.learn]
+        self.lifecycle_pool = QThreadPool(self)
+        self.lifecycle_pool.setMaxThreadCount(1)
+        self.utility_pool = QThreadPool(self)
+        self.utility_pool.setMaxThreadCount(1)
+        self.retire_events = []
+        self.mic_test_cancel = threading.Event()
+        self.asset_check_running = False
+        self.last_metrics = {}
+        self.ui = DesktopUI(self)
         self.native_filter = HotkeyFilter(self.pressed)
         QApplication.instance().installNativeEventFilter(self.native_filter)
         self.timer = QTimer(self)
@@ -284,8 +180,17 @@ class Window(QMainWindow):
         menu = QMenu(self)
         show = menu.addAction("Show Vowely")
         show.triggered.connect(self.reveal)
+        for index,name in enumerate(DesktopUI.NAMES[1:],1):
+            action = menu.addAction(name)
+            action.triggered.connect(lambda checked=False,i=index:self.show_page(i))
+        menu.addSeparator()
         self.tray_pause = menu.addAction("Resume dictation")
         self.tray_pause.triggered.connect(self.toggle_dictation)
+        self.tray_cancel = menu.addAction('Cancel current operation')
+        self.tray_cancel.triggered.connect(lambda:self.abort() if self.state!='idle' else None)
+        self.tray_free = menu.addAction('Free model memory')
+        self.tray_free.triggered.connect(lambda:self.unload_models() if self.state=='idle' else None)
+        menu.addSeparator()
         quit_action = menu.addAction("Quit")
         quit_action.triggered.connect(self.quit)
         self.tray.setContextMenu(menu)
@@ -298,7 +203,7 @@ class Window(QMainWindow):
         self.prepare_button.setEnabled(self.live.isChecked())
         self.unload_button.setEnabled(False)
         if auto_prepare:
-            QTimer.singleShot(0,self.start_automatically)
+            QTimer.singleShot(0,self.ui.open_onboarding if self.needs_onboarding else self.start_automatically)
 
     def start_automatically(self):
         if not self.win.registered: self.toggle_dictation()
@@ -307,6 +212,10 @@ class Window(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def show_page(self,index):
+        self.ui.navigate(index)
+        self.reveal()
 
     def run_background(self):
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -348,11 +257,15 @@ class Window(QMainWindow):
         if gpu != c.gpu:
             c.whisper_exe = 'vendor/whisper-cuda/Release/whisper-cli.exe' if gpu else 'vendor/whisper/Release/whisper-cli.exe'
         c.gpu = gpu
-        if not c.cpu_whisper_exe:
-            c.cpu_whisper_exe = 'vendor/whisper/Release/whisper-cli.exe'
         c.language = self.language.text().strip().lower()
         c.vad_model = (c.vad_model or 'models/ggml-silero-v6.2.0.bin') if self.vad.isChecked() else ''
+        c.threads = self.ui.threads.value()
+        c.max_seconds = self.ui.duration.value()
+        c.inference_timeout = self.ui.timeout.value()
+        c.deny_processes = [x.strip() for x in self.ui.deny_processes.toPlainText().splitlines() if x.strip()]
+        c.deny_name_fragments = [x.strip() for x in self.ui.deny_names.toPlainText().splitlines() if x.strip()]
         c.validate()
+        parse_hotkey(c.hotkey)
         return c
 
     def working(self, busy):
@@ -369,18 +282,77 @@ class Window(QMainWindow):
 
     def unload_models(self):
         if self.runtime:
-            self.runtime.close()
+            self.retire_runtime(self.runtime)
             self.runtime = None
         self.models_status.setText('Models unloaded • microphone off')
         self.unload_button.setEnabled(False)
 
     def live_changed(self, enabled):
-        self.file_button.setText('Replay a WAV in live mode • preview only' if enabled else 'Transcribe a local WAV file • preview only')
-        if enabled:
-            self.prepare_live()
-        else:
-            self.unload_models()
+        self.file_button.setText('Replay a WAV in live mode · preview only' if enabled else 'Transcribe a local WAV file · preview only')
+        self.working(self.state!='idle')
+
+    def retire_runtime(self,runtime):
+        runtime.stop.set()  # Immediate cancellation signal; no I/O or waiting.
+        done = threading.Event()
+        self.retire_events = [event for event in self.retire_events if not event.is_set()]
+        self.retire_events.append(done)
+        self.lifecycle_pool.start(CloseModels(runtime,done))
+
+    def apply_settings(self):
+        if self.win.registered or self.state!='idle' or self.pool.activeThreadCount():
+            self.status.setText('Pause dictation and finish the current operation before saving settings.')
+            return False
+        try:
+            config = self.settings()
+            config.save(self.config_path)
+            self.c = config
+            if self.runtime and not self.runtime.matches(config): self.unload_models()
+            self.status.setText('Settings saved locally. Resume dictation when ready.')
+            self.ui.save_status.setText('Saved on this PC. Resume dictation to use these settings.')
+            return True
+        except (OSError,ValueError) as error:
+            self.status.setText(str(error))
+            self.ui.save_status.setText(str(error))
+            return False
+
+    def check_assets(self):
+        if self.asset_check_running or getattr(self,'quitting',False): return
+        self.asset_check_running = True
+        self.ui.asset_status.setText('Checking local files…')
+        self.ui.asset_check.setEnabled(False)
+        self.asset_job = AssetCheck(self.root,copy.deepcopy(self.c))
+        self.asset_job.signals.done.connect(self.assets_checked)
+        self.utility_pool.start(self.asset_job)
+
+    def assets_checked(self,rows):
+        self.asset_check_running = False
+        if not self.quitting: self.ui.asset_results(rows)
+
+    def test_microphone(self):
+        if self.state!='idle' or self.pool.activeThreadCount() or self.quitting: return
+        try:
+            config = self.settings()
+        except ValueError as error:
+            self.status.setText(str(error));return
+        self.state = 'audio_testing'
+        self.working(True)
+        self.mic_test_cancel = threading.Event()
+        self.status.setText('Testing microphone for three seconds · test audio will be discarded')
+        self.mic_job = MicrophoneCheck(config.microphone,self.mic_test_cancel)
+        self.mic_job.signals.level.connect(self.microphone_level,Qt.QueuedConnection)
+        self.mic_job.signals.done.connect(self.microphone_checked)
+        self.utility_pool.start(self.mic_job)
+
+    def microphone_level(self,level):
+        if not self.quitting: self.ui.microphone_level(level)
+
+    def microphone_checked(self,result):
+        if self.state in ('audio_testing','stopping_audio'):
+            self.state = 'idle'
             self.working(False)
+            if not self.quitting:
+                self.ui.microphone_result(result)
+                self.status.setText(result['message'])
 
     def prepare_live(self):
         if self.state != 'idle' or self.pool.activeThreadCount(): return
@@ -401,13 +373,13 @@ class Window(QMainWindow):
             self.job = PrepareJob(self.generation,self.runtime,self.cancel)
             self.job.signals.prepared.connect(self.models_prepared)
             self.job.signals.error.connect(self.failed)
-            self.pool.start(self.job)
+            self.lifecycle_pool.start(self.job)
         except Exception:
             self.failed(self.generation,'Could not prepare models. Check model files and settings, then retry.')
 
     def models_prepared(self, generation, runtime):
         if generation != self.generation or self.cancel.is_set():
-            runtime.close()
+            self.retire_runtime(runtime)
             return
         self.state = 'idle'
         self.working(False)
@@ -651,6 +623,7 @@ class Window(QMainWindow):
     def finished(self, generation, result):
         if generation != self.generation or self.cancel.is_set():
             return
+        self.last_metrics = {key:result[key] for key in ('total_ms','tail_ms','asr_ms','gpu_used','cleanup_gpu_used','cpu_fallback') if key in result}
         self.state = "idle"
         self.live_session = None
         self.replay_pcm = b''
@@ -709,12 +682,17 @@ class Window(QMainWindow):
             self.overlay.show_phase('notice','Could not finish',2500)
 
     def abort(self):
+        if self.state in ('audio_testing','stopping_audio'):
+            self.mic_test_cancel.set()
+            self.state = 'stopping_audio'
+            self.status.setText('Stopping microphone check…')
+            return
         self.stop_learning()
         self.learning_popup.clear()
         self.overlay.clear()
         self.cancel.set()
         self.generation += 1
-        if self.live_session: self.live_session.abort()
+        if self.live_session: self.live_session.abort(close_runtime=False)
         self.live_session = None
         self.replay_pcm = b''
         self.unload_models()
@@ -771,35 +749,12 @@ class Window(QMainWindow):
                 self.stop_learning()
 
     def manage_dictionary(self):
-        from PySide6.QtWidgets import QDialog, QListWidget, QAbstractItemView
-        self.stop_learning()
-        dialog = QDialog(self)
-        dialog.setWindowTitle('Vowely • learned words')
-        dialog.resize(400,360)
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel('Stored locally. These spellings help future dictation.'))
-        words = QListWidget()
-        words.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        words.addItems(self.dictionary.words)
-        layout.addWidget(words)
-        remove = QPushButton('Remove selected words')
-        def remove_words():
-            try:
-                self.dictionary.remove([item.text() for item in words.selectedItems()])
-                words.clear();words.addItems(self.dictionary.words)
-                self.dictionary_button.setText(f'Learned words ({len(self.dictionary.words)})')
-                self.dictionary_status.setText('Corrected spellings stay on this PC.')
-            except OSError:
-                self.dictionary_status.setText('Could not update the local dictionary.')
-        remove.clicked.connect(remove_words)
-        layout.addWidget(remove)
-        close = QPushButton('Close')
-        close.clicked.connect(dialog.accept)
-        layout.addWidget(close)
-        dialog.exec()
+        self.ui.navigate(2)
+        self.reveal()
 
     def clear_text(self):
         self.stop_learning()
+        self.last_metrics = {}
         self.preview.clear()
         self.original.clear()
 
@@ -818,16 +773,30 @@ class Window(QMainWindow):
             self.quit()
             event.accept()
 
+    def resizeEvent(self,event):
+        super().resizeEvent(event)
+        if hasattr(self,'ui'): self.ui.adapt()
+
     def quit(self):
+        if self.quitting: return
         self.quitting = True
         self.disarm()
-        self.pool.waitForDone(3000)
+        self.ui.timer.stop()
+        self.timer.stop()
+        self.state = 'stopping'
+        self.status.setText('Closing local models…')
+        self.ui.refresh()
+        self.finish_quit()
+
+    def finish_quit(self):
+        if any(pool.activeThreadCount() for pool in (self.pool,self.lifecycle_pool,self.utility_pool)):
+            QTimer.singleShot(40,self.finish_quit)
+            return
         self.win.close()
         self.tray.hide()
-        self.overlay.clear()
-        self.overlay.close()
-        self.learning_popup.clear()
-        self.learning_popup.close()
+        self.overlay.clear();self.overlay.close()
+        self.learning_popup.clear();self.learning_popup.close()
+        self.close()
         QApplication.instance().quit()
 
 
@@ -890,7 +859,7 @@ def main():
             timeout.start(2000)
             received()
     server.newConnection.connect(show_requested)
-    if not QSystemTrayIcon.isSystemTrayAvailable(): window.reveal()
+    if window.needs_onboarding or not QSystemTrayIcon.isSystemTrayAvailable(): window.reveal()
     app.aboutToQuit.connect(window.win.close)
     try:
         return app.exec()

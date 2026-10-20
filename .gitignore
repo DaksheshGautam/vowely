@@ -3,6 +3,8 @@ config.json
 config.tmp
 dictionary.json
 dictionary.tmp
+ui-state.json
+ui-state.tmp
 .env
 .env.*
 !.env.example

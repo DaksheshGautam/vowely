@@ -2,7 +2,7 @@
 
 **v0.1.0-alpha.1 — Windows prerelease**
 
-The main branch also contains **0.1.0-alpha.9 development changes** for draft-based spelling learning with a words-added popup, the lavender V app icon, automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
+The main branch also contains **0.1.0-alpha.10 development changes** for a redesigned dark desktop, guided first-run setup, draft-based spelling learning, final-result typing and a voice-reactive indicator. These changes are not included in the published alpha.1 ZIP.
 
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
@@ -19,6 +19,14 @@ The portable ZIP contains the app runtime and setup tools, **not the large model
 For source installation or transferring an already provisioned folder to an offline PC, see [SETUP.md](SETUP.md).
 
 ## Dictation controls
+
+### Desktop navigation (alpha.10 development)
+
+Home shows the current state, shortcut, mode/model/language and latest transcription. **Dictation** holds the editable current result and original recognition; nothing is saved as transcript history. **Vocabulary** manages manual hints and searchable learned words. **Models** contains recognition/cleanup backends, live mode, decoding quality, load/unload, real last-dictation timings and asynchronous local file/dependency checks. **Settings** groups audio, dictation, performance limits and privacy denylists. **Help** holds preview recording/WAV tests, diagnostics, setup guidance and access to the local application folder.
+
+Use Alt+1 through Alt+6 to navigate. Pages scroll, the sidebar collapses in narrow windows, and settings pages keep a visible Save bar. Pause before editing configuration; Save changes preserves existing model paths and other configuration values. Resume applies the chosen configuration and reloads live models when needed. Changing the Live checkbox alone does not start model operations; use Save, Load or Resume. Model startup/shutdown and diagnostics run in workers.
+
+New installations open a four-step setup flow: welcome, real three-second microphone test, local model checks, then shortcut selection and a real sample dictation. Microphone tests discard captured audio. Missing models show actionable local setup guidance; no download starts automatically. Setup can be skipped or revisited in Help. Existing installations keep their configuration and go directly to normal startup. Only setup-completion metadata is stored in ui-state.json. Closing the window preserves dictation in the tray; its menu links to every page and includes pause, cancel, free memory and quit.
 
 - **Push-to-talk:** launch Vowely and wait for Ready. It registers your shortcut and loads models automatically. Focus an editor and hold the shortcut to speak; release to finish. No field approval is needed. A conflicting shortcut shows an error; there is no silent remapping.
 - **Live preview:** Whisper shows provisional text while you speak. Sentence-ending punctuation must agree across two previews before the sentence is sent to Qwen. There is no required 1.2-second silence gap. Qwen cleans text; it does not decide sentence boundaries.
