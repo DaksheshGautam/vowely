@@ -20,7 +20,7 @@ Password, sensitive, denied, read-only and unknown controls remain blocked. Deny
 
 Password fields are always blocked. Default terminals remain denied because dictated input can include newlines. There is no force-paste, automatic focus restoration, elevation request or automatic alternate hotkey. Name-fragment matching is intentionally conservative and can have false positives.
 
-A field needs a known editable UIA control and nonempty runtime ID. Unknown accessibility state refuses insertion. With automatic typing enabled, successful validated final Qwen results may be inserted. Rejected, skipped or unavailable cleanup, whole-recording error fallback and empty/no-speech results remain preview-only. Validation does not guarantee meaning or recognition accuracy. Manual recording/file replay never has an insertion target.
+A field needs a known editable UIA control and nonempty runtime ID. Unknown accessibility state refuses insertion. With automatic typing enabled, successful validated final Qwen results may be inserted. Rejected, skipped or unavailable cleanup may use the exact original recognized wording with deterministic comma-list layout. That local fallback can be typed after final recognition completes; rejected Qwen output itself cannot. A successful complete-recording CPU retry follows the same rule. Incomplete and empty/no-speech results remain preview-only. Validation does not guarantee meaning or recognition accuracy. Manual recording/file replay never has an insertion target.
 
 ## Limits to assess before daily use
 

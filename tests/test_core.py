@@ -14,6 +14,7 @@ from localflow.engines import (Cancelled, Cleaner, EngineError, Whisper, cleanup
                                cleanup_insertion_ready, pipeline, run_local, validate_cleanup)
 from localflow.policy import Target, check_target, insertion_allowed
 from localflow.windows import parse_hotkey
+from localflow.formatting import preserved_cleanup
 
 
 class PolicyTests(unittest.TestCase):
@@ -89,6 +90,23 @@ class EngineTests(unittest.TestCase):
                              ('meet at 4','Cleanup requires review. Extra failure.'),('','Cleanup requires review.')]:
             self.assertFalse(cleanup_insertion_ready('meet at 4',text,warning,config))
         self.assertTrue(cleanup_insertion_ready('raw','raw','',Config()))
+
+    def test_rejected_cleanup_types_only_the_exact_source_fallback(self):
+        raw = 'Pay ₹5,000, buy milk, buy bread, buy eggs, buy rice.'
+        text,notice = preserved_cleanup(raw,'Cleanup unavailable or rejected; original wording preserved.')
+        config = Config(cleanup_enabled=True)
+        self.assertTrue(cleanup_insertion_ready(raw,text,notice,config))
+        self.assertFalse(cleanup_insertion_ready(raw,text.replace('₹5,000','₹6,000'),notice,config))
+        self.assertFalse(cleanup_insertion_ready(raw,text,str(notice),config))
+
+    def test_pipeline_marks_preserved_source_as_ready_for_final_typing(self):
+        raw = 'Meet at 4.'
+        fallback = preserved_cleanup(raw,'Cleanup unavailable or rejected; original wording preserved.')
+        with patch.object(Whisper,'transcribe',return_value=raw),patch.object(Cleaner,'clean',return_value=fallback):
+            result = pipeline(b'\x00\x01'*16000,Config(cleanup_enabled=True),Path('.'))
+        self.assertTrue(result['insertion_ready'])
+        self.assertTrue(result['cleanup_fallback'])
+        self.assertEqual(result['text'],raw)
 
     def test_run_success_and_failure(self):
         self.assertIn("hello", run_local([sys.executable, "-c", "print('hello')"], 5))

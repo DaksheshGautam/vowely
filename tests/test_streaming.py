@@ -168,6 +168,27 @@ class StreamingTests(unittest.TestCase):
         self.assertFalse(result['insertion_ready'])
         self.assertTrue(result['review'])
 
+    def test_safe_source_fallback_does_not_block_other_valid_qwen_units(self):
+        from localflow.formatting import preserved_cleanup
+        class Mixed(Runtime):
+            def transcribe(self,*args,**kwargs): return 'First sentence. Meet at 4.'
+            def clean(self,raw,c,cancel):
+                if raw.startswith('First'): return raw,'Cleanup requires review.'
+                return preserved_cleanup(raw,'Cleanup unavailable or rejected; original wording preserved.')
+        result = self.execute(StreamingSession(Mixed(),Config(cleanup_enabled=True),Path('.')),VOICE)
+        self.assertTrue(result['insertion_ready'])
+        self.assertTrue(result['cleanup_fallback'])
+        self.assertEqual(result['text'],'First sentence. Meet at 4.')
+
+    def test_source_revision_discards_obsolete_cleanup_warnings(self):
+        session = StreamingSession(Runtime(),Config(cleanup_enabled=True),Path('.'))
+        self.accept(session,'Wrong word.')
+        self.accept(session,'Wrong word.')
+        session._clean[0] = 'Wrong word.'
+        session._warnings[0] = 'Old warning'
+        self.accept(session,'Correct word.',final=True)
+        self.assertFalse(session._warnings)
+
     def test_cancel_clears_buffer_and_never_returns_partial(self):
         runtime = Runtime()
         session = StreamingSession(runtime,Config(),Path('.'))

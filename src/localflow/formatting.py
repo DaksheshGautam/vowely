@@ -81,11 +81,15 @@ def ensure_comma_list(raw,result):
     return comma_list_text(edited_items if len(edited_items)==len(items) else items)
 
 
+class PreservedCleanupNotice(str):
+    """Local adapter returned source words rather than a rejected model edit."""
+
+
 def preserved_cleanup(raw,warning):
     """A model failure can still apply layout without rewriting any words."""
     text = ensure_comma_list(raw,raw)
     if text!=raw: warning += ' Local comma-list formatting applied; review required.'
-    return text,warning
+    return text,PreservedCleanupNotice(warning)
 
 
 def content_length(text):

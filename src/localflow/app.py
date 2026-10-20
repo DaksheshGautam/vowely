@@ -186,7 +186,7 @@ class Window(QMainWindow):
         form.addRow("Microphone", self.mic)
         form.addRow(self.all_inputs)
         self.cleanup = QCheckBox("Use local Qwen cleanup")
-        self.cleanup.setToolTip('Final validated results type into the focused text box. Failed or rejected cleanup stays in the preview.')
+        self.cleanup.setToolTip('Final results type into the focused text box. If a cleanup edit is rejected, its original recognized words are used instead.')
         self.cleanup.setChecked(self.c.cleanup_enabled)
         form.addRow(self.cleanup)
         self.cleanup_backend = QComboBox()
@@ -634,13 +634,31 @@ class Window(QMainWindow):
         inserted = False
         if attempted:
             inserted, message = self.win.insert(self.target, result["text"], self.c)
+            if inserted and result.get('cleanup_fallback'):
+                message += ' Cleanup partly unavailable or rejected; original words used for those portions.'
+        elif self.target is None:
+            message = 'Test recording • preview only; no typing target was captured.'
         elif result["review"]:
-            message = result["warning"] or "Review the cleaned text before copying."
+            message = 'Final result was incomplete; nothing typed. '+result['warning']
         else:
             message = 'Preview ready • copy the result when ready.'
+        label = 'Typed • original fallback' if inserted and result.get('cleanup_fallback') else 'Typed'
+        if not inserted:
+            if not result['text']: label = 'Nothing to type'
+            elif self.target is None: label = 'Test recording — preview'
+            elif not attempted: label = 'Final text incomplete'
+            elif 'Focus changed' in message: label = 'Focus changed — not typed'
+            elif 'keys' in message.lower(): label = 'Release shortcut keys'
+            elif 'Automatic insertion is off' in message: label = 'Automatic typing is off'
+            elif 'password' in message.lower(): label = 'Password field blocked'
+            elif 'Sensitive field' in message: label = 'Sensitive field blocked'
+            elif 'Application is on' in message: label = 'Application blocked'
+            elif 'partial' in message.lower(): label = 'Typing blocked — check box'
+            elif 'verified' in message or 'editable' in message: label = 'Text box unavailable'
+            else: label = 'Typing failed — see status'
         self.target = None  # Each recording can insert at most once.
         self.overlay.show_phase('done' if inserted else 'notice',
-                                'Typed' if inserted else ('Focus changed — preview' if 'Focus changed' in message else ('Result in Vowely' if result['text'] else 'Nothing to type')),
+                                label,
                                 1100 if inserted else 2600)
         fallback = " GPU unavailable; CPU fallback used." if result["cpu_fallback"] else ""
         backend = ' NVIDIA CUDA active.' if result['gpu_used'] else ''

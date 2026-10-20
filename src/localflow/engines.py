@@ -11,7 +11,7 @@ import array
 import math
 from .formatting import (FORMAT_INSTRUCTIONS, apply_layout_cues, comma_list_items,
                          comma_list_text, content_length, ensure_comma_list, numbers_preserved,
-                         preserved_cleanup)
+                         preserved_cleanup, PreservedCleanupNotice)
 
 
 class LocalOutput(str):
@@ -27,7 +27,7 @@ class Cancelled(EngineError):
 
 
 def cleanup_insertion_ready(raw,text,warning,config):
-    """Only successful validated cleanup can bypass the review-only path.
+    """Accept validated edits or an exact, locally generated source fallback.
 
     Exact success messages form an allowlist: arbitrary failure/fallback text
     never becomes an insertion permission, even if it contains the word review.
@@ -35,6 +35,10 @@ def cleanup_insertion_ready(raw,text,warning,config):
     if not raw.strip() or not text.strip(): return False
     if not config.cleanup_enabled or config.mode=='Verbatim':
         return text==raw and not warning
+    if isinstance(warning,PreservedCleanupNotice):
+        # Never accept a rejected model rewrite. The fallback must equal the
+        # source, with only our deterministic comma-list layout applied.
+        return text==preserved_cleanup(raw,'')[0]
     if warning not in ('Cleanup requires review.','Developer cleanup requires review.'): return False
     try:
         return validate_cleanup(raw,text,config.personal_vocabulary)==text
@@ -216,7 +220,7 @@ class Cleaner:
                                    c.inference_timeout, cancel)
                 cleaned = validate_cleanup(raw, output, c.personal_vocabulary)
                 if c.mode == "Developer":
-                    # The UI applies field approval and final-insertion policy.
+                    # The UI applies focused-field and final-insertion policy.
                     return cleaned, "Developer cleanup requires review."
                 return cleaned, "Cleanup requires review."
         except Cancelled:
@@ -246,5 +250,6 @@ def pipeline(pcm, config, root, cancel=None):
             "total_ms": round((time.perf_counter() - started) * 1000),
             "review": cleaned != raw or bool(warning),
             "insertion_ready": cleanup_insertion_ready(raw,cleaned,warning,config),
+            "cleanup_fallback": isinstance(warning,PreservedCleanupNotice),
             "cpu_fallback": whisper.cpu_fallback,
             "gpu_used": whisper.gpu_used}

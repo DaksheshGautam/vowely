@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.6 — unreleased
+
+- Fixed final typing being blocked when one Qwen edit was rejected and the original recognized wording was retained.
+- Validated Qwen edits and exact local source fallbacks can be combined and typed once after complete final recognition. Rejected model rewrites never become insertion-ready; a fallback must exactly equal the original wording plus deterministic list layout.
+- Retired cleanup warnings are discarded when recognition revises a sentence, so stale failures cannot govern final output.
+- Replaced the generic Result in Vowely notice with the actual insertion reason; successful source fallback is reported explicitly.
+
 ## 0.1.0-alpha.5 — unreleased
 
 - Starts the shortcut and loads configured live models automatically on launch, running in the tray. No arming, field approval or Run in background step.

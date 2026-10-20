@@ -12,7 +12,8 @@ import threading
 import time
 
 from .engines import Cancelled, EngineError, cleanup_insertion_ready, pipeline
-from .formatting import comma_list_items, has_layout_cues, join_blocks
+from .formatting import (comma_list_items, has_layout_cues, join_blocks,
+                         preserved_cleanup, PreservedCleanupNotice)
 
 
 def rms(pcm):
@@ -168,7 +169,7 @@ class StreamingSession:
         self._full_pcm = b''
         self._revision = 0
         self._update_sequence = 0
-        self._warnings = set()
+        self._warnings = {}
         self._asr_seconds = 0
         self._started = time.monotonic()
         self._stopped = None
@@ -253,6 +254,7 @@ class StreamingSession:
             self._clean = {i:text for i,text in self._clean.items()
                            if i<len(units) and self._sentence_raw.get(i)==units[i]}
             self._clean_ready = {i:ready for i,ready in self._clean_ready.items() if i in self._clean}
+            self._warnings = {i:note for i,note in self._warnings.items() if i in self._clean}
             self._scheduled = set(self._clean)
         self._sentence_raw = dict(enumerate(units))
         self._previous_complete = complete
@@ -333,13 +335,14 @@ class StreamingSession:
             except Cancelled:
                 break
             except Exception:
-                text,warning = raw,'Cleanup unavailable; original phrase preserved.'
+                text,warning = preserved_cleanup(raw,'Cleanup unavailable; original phrase preserved.')
             with self._condition:
                 self._clean_busy = False
                 if revision==self._revision:
                     self._clean[index] = text
                     self._clean_ready[index] = cleanup_insertion_ready(raw,text,warning,self.c)
-                    if warning: self._warnings.add(warning)
+                    if warning: self._warnings[index] = warning
+                    else: self._warnings.pop(index,None)
             self._emit()
         with self._condition: self._clean_busy = False
 
@@ -358,12 +361,13 @@ class StreamingSession:
                 self.runtime.close()
                 cpu = replace(self.c,gpu=False,whisper_exe='vendor/whisper/Release/whisper-cli.exe')
                 result = self.fallback(self._full_pcm,cpu,self.root,self.cancel)
-                result.update(review=True,insertion_ready=False,cpu_fallback=True,gpu_used=False,cleanup_gpu_used=False)
+                result.update(review=True,insertion_ready=result.get('insertion_ready',False),cpu_fallback=True,gpu_used=False,cleanup_gpu_used=False)
                 result['warning'] = 'Live mode failed; used local whole-recording CPU fallback. '+result['warning']
             else:
                 payload = self._snapshot()
                 result = {'raw':payload['raw'],'text':payload['text'],
-                          'warning':' '.join(sorted(self._warnings)),
+                          'warning':' '.join(sorted(set(self._warnings.values()))),
+                          'cleanup_fallback':any(isinstance(note,PreservedCleanupNotice) for note in self._warnings.values()),
                           'review':bool(self._warnings) or (self.c.cleanup_enabled and self.c.mode!='Verbatim'),
                           'insertion_ready':bool(payload['text'] and self._recheck_done and self._sentence_raw)
                               and all(self._clean_ready.get(i,False) for i in self._sentence_raw),
@@ -383,6 +387,7 @@ class StreamingSession:
                 self._finals.clear();self._cleanup.clear()
                 self._raw.clear();self._clean.clear()
                 self._clean_ready.clear()
+                self._warnings.clear()
                 self._sentence_raw.clear();self.sentences.clear()
                 self._previous_complete.clear();self._scheduled.clear()
                 self._preview = None;self._partial = ''

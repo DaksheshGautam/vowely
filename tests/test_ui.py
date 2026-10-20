@@ -173,6 +173,26 @@ class UiTests(unittest.TestCase):
         self.assertIn('Focus changed',self.window.overlay.label)
         self.assertEqual(self.window.preview.toPlainText(),'- Milk\n- Bread')
 
+    def test_source_fallback_inserts_and_reports_why_original_words_were_used(self):
+        self.window.target = object()
+        result = self.final_result(cleanup_fallback=True)
+        with patch.object(self.window.win,'insert',return_value=(True,'Inserted into the original field.')) as insert:
+            self.window.finished(self.window.generation,result)
+        insert.assert_called_once()
+        self.assertEqual(self.window.overlay.label,'Typed • original fallback')
+        self.assertIn('original words',self.window.status.text())
+
+    def test_insertion_refusal_overlay_displays_real_reason(self):
+        for message,label in [('Shortcut keys are still held. Preview only.','Release shortcut keys'),
+                              ('Automatic insertion is off. Preview ready.','Automatic typing is off'),
+                              ('Focused field cannot be verified. Preview only.','Text box unavailable'),
+                              ('Insertion blocked or partial.','Typing blocked — check box')]:
+            with self.subTest(message=message):
+                self.window.target = object()
+                with patch.object(self.window.win,'insert',return_value=(False,message)):
+                    self.window.finished(self.window.generation,self.final_result())
+                self.assertEqual(self.window.overlay.label,label)
+
     def test_overlay_is_nonactivating_click_through_and_clears_on_cancel(self):
         overlay = self.window.overlay
         flags = overlay.windowFlags()
