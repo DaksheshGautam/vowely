@@ -19,19 +19,20 @@ from localflow.windows import parse_hotkey
 class PolicyTests(unittest.TestCase):
     def setUp(self):
         self.t = Target(100, 5, "notepad.exe", (1, 2), "Editor", "Text editor", False, True)
-        self.c = Config(auto_insert=True, allow_fields=["notepad.exe|Editor"])
+        self.c = Config(auto_insert=True)
 
-    def test_default_is_preview(self):
-        self.assertFalse(insertion_allowed(self.t, self.t, Config())[0])
+    def test_automatic_typing_can_be_disabled(self):
+        self.assertFalse(insertion_allowed(self.t, self.t, Config(auto_insert=False))[0])
 
-    def test_explicit_allowlist(self):
+    def test_editable_fields_work_without_approval_or_automation_id(self):
         self.assertTrue(insertion_allowed(self.t, self.t, self.c)[0])
-        self.assertFalse(check_target(self.t, replace(self.c, allow_fields=[]))[0])
+        target = replace(self.t,automation_id='')
+        self.assertTrue(insertion_allowed(target,target,Config())[0])
 
     def test_sensitive_overrides_allowlist(self):
         for t in [replace(self.t, password=True), replace(self.t, name="API token"),
                   replace(self.t, editable=False), replace(self.t, known=False),
-                  replace(self.t, automation_id=""), replace(self.t, runtime_id=())]:
+                  replace(self.t, runtime_id=())]:
             with self.subTest(t=t):
                 self.assertFalse(check_target(t, self.c)[0])
         self.assertFalse(check_target(self.t, replace(self.c, deny_processes=["NOTEPAD.EXE"]))[0])
@@ -52,7 +53,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_invalid_bounds(self):
         for kwargs in [{"threads": 0}, {"max_seconds": 999}, {"asr_model": "large"},
-                       {"mode": "foo"}, {"inference_timeout": 0}, {"allow_fields": "*"}, {"auto_insert": "false"}]:
+                       {"mode": "foo"}, {"inference_timeout": 0}, {"deny_processes": "*"}, {"auto_insert": "false"}]:
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 replace(Config(), **kwargs).validate()
 
@@ -67,6 +68,15 @@ class ConfigTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 replace(Config(), personal_vocabulary=value).validate()
         replace(Config(), personal_vocabulary=['Example Person', 'PySide6']).validate()
+
+    def test_legacy_approval_settings_are_removed_on_save(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'config.json'
+            path.write_text(json.dumps({'allow_fields':['legacy.exe|Editor'],'auto_insert':False}),encoding='utf-8')
+            config = Config.load(path)
+            self.assertTrue(config.auto_insert)
+            config.save(path)
+            self.assertNotIn('allow_fields',json.loads(path.read_text()))
 
 
 class EngineTests(unittest.TestCase):

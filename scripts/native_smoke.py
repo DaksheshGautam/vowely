@@ -85,14 +85,14 @@ def main():
                 fixture_pid = int((folder / 'fixture.pid').read_text()) if (folder / 'fixture.pid').exists() else child.pid
                 if candidate and candidate.pid == fixture_pid:
                     candidates.append({'id': candidate.automation_id, 'editable': candidate.editable})
-                if candidate and candidate.pid == fixture_pid and candidate.automation_id:
+                if candidate and candidate.pid == fixture_pid and candidate.editable and candidate.runtime_id:
                     target = candidate
                     break
                 time.sleep(0.1)
             report['focused_test_field_verified'] = target is not None
             report['fixture_fields_seen'] = candidates[:2]
             if target:
-                c = Config(auto_insert=True, allow_fields=[target.field_key])
+                c = Config(auto_insert=True)
                 ok, reason = native.insert(target, 'LocalFlow test 😀', c)
                 time.sleep(1)
                 state = json.loads((folder / 'state.json').read_text())
@@ -108,7 +108,6 @@ def main():
                     report['sensitive_field_id'] = sensitive.automation_id
                 report['native_password_detected'] = sensitive is not None and sensitive.pid == fixture_pid and sensitive.password
                 if sensitive:
-                    c.allow_fields.append(sensitive.field_key)
                     report['password_insertion_blocked'] = not native.insert(sensitive, 'blocked', c)[0]
             (folder / 'command.txt').write_text('quit')
             child.wait(5)

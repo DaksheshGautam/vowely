@@ -31,7 +31,7 @@ def build(root,bundle,output):
     portable = output/(stem+'-windows-x64.zip')
     source = output/(stem+'-source.zip')
     safe_config = json.loads((root/'config.example.json').read_text())
-    if safe_config['personal_vocabulary'] or safe_config['allow_fields'] or safe_config['auto_insert'] or safe_config['microphone'] is not None:
+    if safe_config['personal_vocabulary'] or 'allow_fields' in safe_config or safe_config['microphone'] is not None:
         raise RuntimeError('Example config contains personal or permissive values.')
     with zipfile.ZipFile(portable,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
         for path in bundle.rglob('*'):

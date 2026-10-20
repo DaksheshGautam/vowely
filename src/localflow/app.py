@@ -128,7 +128,6 @@ class Window(QMainWindow):
         self.state = "idle"
         self.target = None
         self.recorder = None
-        self.last_target = None
         self.button_recording = False
         self.stop_requested = False
         self.generation = 0
@@ -145,8 +144,8 @@ class Window(QMainWindow):
         self.resize(650, 780)
         body = QWidget()
         layout = QVBoxLayout(body)
-        layout.addWidget(QLabel("Audio and text stay local. No history is saved.\nArm your chosen shortcut, focus a field, then hold it to speak."))
-        self.status = QLabel("Disarmed • microphone off")
+        layout.addWidget(QLabel("Audio and text stay local. No history is saved.\nFocus a text box, hold your shortcut to speak, then release to type."))
+        self.status = QLabel("Starting dictation • microphone off")
         self.status.setTextFormat(Qt.PlainText)
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -187,7 +186,7 @@ class Window(QMainWindow):
         form.addRow("Microphone", self.mic)
         form.addRow(self.all_inputs)
         self.cleanup = QCheckBox("Use local Qwen cleanup")
-        self.cleanup.setToolTip('Final validated results can be typed into an approved field. Failed or rejected cleanup stays in the preview.')
+        self.cleanup.setToolTip('Final validated results type into the focused text box. Failed or rejected cleanup stays in the preview.')
         self.cleanup.setChecked(self.c.cleanup_enabled)
         form.addRow(self.cleanup)
         self.cleanup_backend = QComboBox()
@@ -198,8 +197,8 @@ class Window(QMainWindow):
         self.live.setChecked(self.c.streaming_enabled)
         self.live.setToolTip('No fixed silence wait. Sentence-ending punctuation must agree across two Whisper previews before Qwen cleans the sentence. Qwen does not decide boundaries. Stop rechecks the complete recording and cleans any unfinished text. Detection is approximate; preview checks and model processing take time. Final insertion happens only after Stop.')
         form.addRow(self.live)
-        self.insert = QCheckBox("Automatically type final results into approved fields")
-        self.insert.setToolTip('Waits for final Whisper recognition and Qwen cleanup. Never types provisional text. Requires field approval and unchanged focus.')
+        self.insert = QCheckBox("Automatically type final results into the focused text box")
+        self.insert.setToolTip('Waits for final Whisper recognition and Qwen cleanup. No field approval is needed. Password fields and changed focus remain blocked.')
         self.insert.setChecked(self.c.auto_insert)
         form.addRow(self.insert)
         layout.addLayout(form)
@@ -214,12 +213,10 @@ class Window(QMainWindow):
         self.unload_button.clicked.connect(self.unload_models)
         model_actions.addWidget(self.prepare_button);model_actions.addWidget(self.unload_button)
         layout.addLayout(model_actions)
-        self.arm = QPushButton("Arm shortcut")
-        self.arm.clicked.connect(self.toggle_arm)
-        layout.addWidget(self.arm)
-        self.background = QPushButton('Run in background')
-        self.background.clicked.connect(self.run_background)
-        layout.addWidget(self.background)
+        self.pause = QPushButton("Resume dictation")
+        self.pause.setToolTip('Dictation starts automatically. Pause only when you want to stop the shortcut or change settings.')
+        self.pause.clicked.connect(self.toggle_dictation)
+        layout.addWidget(self.pause)
         self.record_button = QPushButton("Record a test • preview only")
         self.record_button.clicked.connect(self.manual_record)
         layout.addWidget(self.record_button)
@@ -229,15 +226,6 @@ class Window(QMainWindow):
         cancel = QPushButton("Cancel recording / processing")
         cancel.clicked.connect(self.abort)
         layout.addWidget(cancel)
-        self.field = QLabel("Use the shortcut in a target field to inspect it. Disarm before allowing that field.")
-        self.field.setTextFormat(Qt.PlainText)
-        self.field.setWordWrap(True)
-        self.field.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        layout.addWidget(self.field)
-        self.allow_button = QPushButton("Allow the last inspected field")
-        self.allow_button.clicked.connect(self.allow_last_field)
-        self.allow_button.setToolTip("Disarm first. Allows this executable + field ID; password and denylist rules still win.")
-        layout.addWidget(self.allow_button)
         layout.addWidget(QLabel("Result • edit or copy after review"))
         actions = QHBoxLayout()
         self.copy_button = QPushButton("Copy reviewed result")
@@ -259,7 +247,7 @@ class Window(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll.setWidget(body)
         self.setCentralWidget(scroll)
-        self.controls = [self.mode, self.model, self.hotkey, self.mic, self.cleanup, self.insert, self.allow_button,
+        self.controls = [self.mode, self.model, self.hotkey, self.mic, self.cleanup, self.insert,
                          self.backend, self.language, self.vad, self.all_inputs, self.search_quality, self.vocabulary,
                          self.cleanup_backend,self.live]
         self.native_filter = HotkeyFilter(self.pressed)
@@ -275,8 +263,8 @@ class Window(QMainWindow):
         menu = QMenu(self)
         show = menu.addAction("Show Vowely")
         show.triggered.connect(self.reveal)
-        stop = menu.addAction("Disarm and cancel")
-        stop.triggered.connect(self.disarm)
+        self.tray_pause = menu.addAction("Resume dictation")
+        self.tray_pause.triggered.connect(self.toggle_dictation)
         quit_action = menu.addAction("Quit")
         quit_action.triggered.connect(self.quit)
         self.tray.setContextMenu(menu)
@@ -288,8 +276,11 @@ class Window(QMainWindow):
         self.file_button.setText('Replay a WAV in live mode • preview only' if self.live.isChecked() else 'Transcribe a local WAV file • preview only')
         self.prepare_button.setEnabled(self.live.isChecked())
         self.unload_button.setEnabled(False)
-        if auto_prepare and self.c.streaming_enabled:
-            QTimer.singleShot(0,self.prepare_live)
+        if auto_prepare:
+            QTimer.singleShot(0,self.start_automatically)
+
+    def start_automatically(self):
+        if not self.win.registered: self.toggle_dictation()
 
     def reveal(self):
         self.showNormal()
@@ -349,7 +340,7 @@ class Window(QMainWindow):
         self.copy_button.setEnabled(not busy)
         self.record_button.setEnabled(self.state in ('idle','recording'))
         self.file_button.setEnabled(not busy)
-        self.arm.setEnabled(self.win.registered or not busy)
+        self.pause.setEnabled(self.win.registered or not busy)
         self.prepare_button.setEnabled(not busy and not self.win.registered and self.live.isChecked())
         self.unload_button.setEnabled(not busy and not self.win.registered and self.runtime is not None)
 
@@ -398,7 +389,7 @@ class Window(QMainWindow):
         self.state = 'idle'
         self.working(False)
         self.models_status.setText('Ready • '+runtime.description)
-        self.status.setText('Models ready • click Record a test, or arm your shortcut • microphone off')
+        self.status.setText(f'Ready • focus a text box and hold {self.c.hotkey} • microphone off')
         if self.overlay.phase=='processing':
             self.overlay.show_phase('done','Ready — hold shortcut',1800)
 
@@ -450,7 +441,7 @@ class Window(QMainWindow):
         self.working(True)
         self.status.setText('Replaying local WAV at speaking speed • microphone off • preview only')
 
-    def toggle_arm(self):
+    def toggle_dictation(self):
         if self.win.registered:
             self.disarm()
             return
@@ -463,37 +454,37 @@ class Window(QMainWindow):
                 self.win.disarm()
                 raise
             self.c = c
-            self.arm.setText("Disarm shortcut")
+            self.pause.setText("Pause dictation")
+            self.tray_pause.setText("Pause dictation")
             self.working(False)
-            self.status.setText(f"Armed • hold {self.c.hotkey} to speak • microphone off")
+            self.status.setText(f"Ready • hold {self.c.hotkey} to speak • microphone off")
+            if c.streaming_enabled and (not self.runtime or not self.runtime.matches(c)):
+                self.prepare_live()
         except Exception as exc:
             self.status.setText(str(exc))
+            self.overlay.show_phase('notice','Shortcut unavailable',3000)
 
     def disarm(self):
         self.win.disarm()
         self.abort()
-        self.arm.setText("Arm shortcut")
+        self.pause.setText("Resume dictation")
+        self.tray_pause.setText("Resume dictation")
         for control in self.controls:
             control.setEnabled(True)
-        self.status.setText("Disarmed • microphone off")
+        self.status.setText("Paused • microphone off")
 
     def pressed(self):
         if not self.win.registered or self.state != "idle" or self.pool.activeThreadCount():
             return
         self.target = self.win.snapshot()
-        self.last_target = self.target
-        if self.target:
-            self.field.setText(f"Last field: {self.target.field_key}\nName: {self.target.name[:100]}")
-        else:
-            self.field.setText("Field cannot be verified • preview only")
         ok, why = check_target(self.target, self.c)
         if not ok and why in ("Password field blocked.", "Application is on the denylist.", "Sensitive field blocked."):
             self.status.setText(why + " Microphone remains off.")
             self.overlay.show_phase('notice','Field blocked',2200)
             return
         if not ok and self.c.auto_insert:
-            self.status.setText(why+' Open Vowely, disarm, and allow the last inspected field before dictating here.')
-            self.overlay.show_phase('notice','Approve field in Vowely',2800)
+            self.status.setText(why+' Click inside an editable text box and try again.')
+            self.overlay.show_phase('notice','Select a text box',2800)
             return
         self.button_recording = False
         if not self.ensure_live_ready(): return
@@ -538,25 +529,6 @@ class Window(QMainWindow):
         self.button_recording = True
         if not self.ensure_live_ready(): return
         self.begin_recording()
-
-    def allow_last_field(self):
-        target = self.last_target
-        if self.win.registered:
-            self.status.setText("Disarm before changing field permissions.")
-            return
-        c = self.settings()
-        if target is not None and target.field_key not in c.allow_fields:
-            c.allow_fields.append(target.field_key)
-        allowed, reason = check_target(target, c)
-        if not allowed:
-            self.status.setText(reason)
-            return
-        try:
-            c.save(self.config_path)
-            self.c = c
-            self.status.setText(f"Allowed {target.field_key}. Turn on auto-insert explicitly to use it. Deny rules still apply.")
-        except Exception:
-            self.status.setText("Could not save field permission.")
 
     def transcribe_file(self):
         if self.state != 'idle' or self.pool.activeThreadCount():
@@ -796,7 +768,7 @@ def main():
             timeout.start(2000)
             received()
     server.newConnection.connect(show_requested)
-    window.reveal()
+    if not QSystemTrayIcon.isSystemTrayAvailable(): window.reveal()
     app.aboutToQuit.connect(window.win.close)
     try:
         return app.exec()

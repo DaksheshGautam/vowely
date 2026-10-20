@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.5 — unreleased
+
+- Starts the shortcut and loads configured live models automatically on launch, running in the tray. No arming, field approval or Run in background step.
+- Removed the approval button, field-inspection workflow and persisted allowlist. Legacy configurations migrate without losing model/microphone preferences.
+- Focused editable controls use their runtime identity even without an AutomationId. Password/sensitive/read-only/unknown controls and changed focus still refuse insertion.
+- Optional Pause/Resume remains in settings and the tray; shortcut conflicts fail clearly without remapping another shortcut. Resume reloads models automatically.
+
 ## 0.1.0-alpha.4 — unreleased
 
 - Final validated Qwen output can type once into an approved, still-focused field when automatic insertion is enabled. Drafts are never inserted or replaced; rejected/failed cleanup remains preview-only.

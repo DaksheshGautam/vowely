@@ -32,7 +32,7 @@ class WindowsTests(unittest.TestCase):
         self.w.vk = 0x78
         self.target = Target(1, 2, "editor.exe", (1, 2), "Text", "Editor", False, True)
         self.w.snapshot = lambda: self.target
-        self.c = Config(auto_insert=True, allow_fields=["editor.exe|Text"])
+        self.c = Config(auto_insert=True)
 
     def test_utf16_and_keyup_without_clipboard(self):
         ok, _ = self.w.insert(self.target, "A😀", self.c)

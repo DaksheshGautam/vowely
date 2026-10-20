@@ -21,8 +21,7 @@ class Config:
     max_seconds: int = 60
     inference_timeout: int = 180
     hotkey: str = "Ctrl+Alt+F9"
-    auto_insert: bool = False
-    allow_fields: list[str] = field(default_factory=list)
+    auto_insert: bool = True
     deny_processes: list[str] = field(default_factory=lambda: [
         "keepass.exe", "keepassxc.exe", "1password.exe", "bitwarden.exe",
         "credentialuibroker.exe", "consent.exe", "windowsterminal.exe",
@@ -58,7 +57,7 @@ class Config:
             raise ValueError("language must be auto or a Whisper language code")
         if self.microphone is not None and (type(self.microphone) is not int or self.microphone < 0):
             raise ValueError("microphone must be null or a nonnegative device index")
-        for names in (self.allow_fields, self.deny_processes, self.deny_name_fragments):
+        for names in (self.deny_processes, self.deny_name_fragments):
             if not isinstance(names, list) or not all(isinstance(x, str) and x for x in names):
                 raise ValueError("Allow/deny entries must be nonempty strings")
 
@@ -66,7 +65,11 @@ class Config:
     def load(cls, path: Path):
         if not path.exists():
             return cls()
-        c = cls(**json.loads(path.read_text(encoding="utf-8")))
+        values = json.loads(path.read_text(encoding="utf-8"))
+        if 'allow_fields' in values:
+            values.pop('allow_fields')  # Migrate the retired field-approval flow.
+            values['auto_insert'] = True
+        c = cls(**values)
         c.validate()
         return c
 

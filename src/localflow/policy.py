@@ -13,11 +13,6 @@ class Target:
     editable: bool
     known: bool = True
 
-    @property
-    def field_key(self):
-        return f"{self.process.lower()}|{self.automation_id}"
-
-
 def check_target(target, config):
     if target is None or not target.known:
         return False, "Focused field cannot be verified. Preview only."
@@ -28,10 +23,8 @@ def check_target(target, config):
     label = f"{target.name} {target.automation_id}".lower()
     if any(x.lower() in label for x in config.deny_name_fragments):
         return False, "Sensitive field blocked."
-    if not target.editable or not target.runtime_id or not target.automation_id:
+    if not target.editable or not target.runtime_id:
         return False, "Field is not an identifiable editable control. Preview only."
-    if target.field_key not in config.allow_fields:
-        return False, "Field is not on the explicit allowlist. Preview only."
     return True, "Allowed"
 
 

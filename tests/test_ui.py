@@ -32,7 +32,7 @@ class UiTests(unittest.TestCase):
         self.mic_patch.start()
         self.addCleanup(self.mic_patch.stop)
         root = Path(self.tmp.name)
-        self.window = Window(root, root / "config.json")
+        self.window = Window(root, root / "config.json",auto_prepare=False)
         self.addCleanup(self.window.quit)
 
     def test_start_is_disarmed_and_cancel_clears_text(self):
@@ -44,7 +44,7 @@ class UiTests(unittest.TestCase):
 
     def test_failed_hotkey_does_not_save_or_arm(self):
         with patch.object(self.window.win, "arm", side_effect=RuntimeError("Shortcut in use")):
-            self.window.toggle_arm()
+            self.window.toggle_dictation()
         self.assertFalse(self.window.win.registered)
         self.assertFalse(self.window.config_path.exists())
         self.assertIn("in use", self.window.status.text())
@@ -214,15 +214,37 @@ class UiTests(unittest.TestCase):
         overlay.animate()
         self.assertNotEqual(overlay.angle,angle)
 
-    def test_unapproved_shortcut_target_inspects_without_opening_microphone(self):
+    def test_shortcut_records_in_focused_box_without_approval(self):
         self.window.c.auto_insert = True
         self.window.win.registered = True
-        target = Target(100,5,'editor.exe',(1,2),'Editor','Editor',False,True)
+        target = Target(100,5,'editor.exe',(1,2),'','Editor',False,True)
         with patch.object(self.window.win,'snapshot',return_value=target),patch.object(self.window,'begin_recording') as record:
             self.window.pressed()
-            record.assert_not_called()
-        self.assertEqual(self.window.last_target,target)
-        self.assertEqual(self.window.overlay.label,'Approve field in Vowely')
+            record.assert_called_once()
+        self.assertEqual(self.window.target,target)
+        self.assertFalse(hasattr(self.window,'allow_button'))
+        self.assertFalse(hasattr(self.window,'background'))
+        self.assertFalse(hasattr(self.window,'arm'))
+        self.window.win.registered = False
+
+    def test_startup_registers_shortcut_without_user_setup(self):
+        def reserve(key): self.window.win.registered = True
+        with patch.object(self.window.win,'arm',side_effect=reserve) as reserve_key:
+            self.window.start_automatically()
+            reserve_key.assert_called_once_with(self.window.c.hotkey)
+            self.window.start_automatically()
+            reserve_key.assert_called_once()
+        self.assertEqual(self.window.pause.text(),'Pause dictation')
+        self.window.win.registered = False
+
+    def test_resume_automatically_reloads_models_before_next_shortcut(self):
+        with patch.object(self.window,'prepare_live'):
+            self.window.live.setChecked(True)
+        self.window.state = 'idle'
+        def reserve(key): self.window.win.registered = True
+        with patch.object(self.window.win,'arm',side_effect=reserve),patch.object(self.window,'prepare_live') as prepare:
+            self.window.start_automatically()
+            prepare.assert_called_once()
         self.window.win.registered = False
 
 
