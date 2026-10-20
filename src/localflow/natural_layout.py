@@ -13,6 +13,7 @@ TRANSITION = re.compile(r'\b(?:the\s+(?:(?:basic|main|primary)\s+)?(?:use|purpos
 ORDINALS = ('first','second','third','fourth','fifth','sixth','seventh','eighth','ninth','tenth')
 ORDINAL = re.compile(r'\b(?:and\s+)?(?:the\s+)?(?P<index>'+ '|'.join(ORDINALS) +r')(?:(?:\s+(?:one|item|output|file|report|pdf|step|point))|ly)(?:\s+(?:will\s+be|would\s+be|should\s+be|is|are))?\s*[:,]?\s*',re.I)
 QUOTED = re.compile(r'```[\s\S]*?```|`[^`]*`|"[^"\n]*"|“[^”\n]*”|(?<!\w)\'[^\'\n]*\'(?!\w)')
+ABBREVIATION = re.compile(r'\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|e\.g|i\.e)\.|\b[A-Z]\.(?=\s+[A-Z])',re.I)
 LIST_COMMAND = re.compile(r'\b(?:(?:make|create|start|begin)\s+)?(?:a\s+)?(?P<style>bullet(?:ed)?|numbered)\s+list\b[\s.,:;]*',re.I)
 END_LIST = re.compile(r'\b(?:end|finish)\s+(?:the\s+)?list\b[\s.,:;]*',re.I)
 EXPLICIT_ITEM = re.compile(r'\b(?:(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s+(?:point|item)|next\s+(?:bullet\s+)?(?:point|item)|bullet\s+point|number\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+))\b[\s.,:;]*',re.I)
@@ -20,7 +21,8 @@ CONNECTORS = re.compile(r'\b(?:and|or|plus|as\s+well\s+as)\b|[,;&]',re.I)
 ACTION = (r'(?:fix|make|check|test|improve|update|verify|confirm|send|explain|share|review|'
           r'collect|install|remove|ensure|run|open|select|finish|keep|pay|meet|call|buy|'
           r'add|create|write|build|prepare|compare|download|save|delete|restart|enable|disable)')
-ACTION_START = re.compile(r'^(?:(?:please|could\s+you|can\s+you)\s+)?'+ACTION+r'\b',re.I)
+ACTION_PREFIX = r"(?:(?:please|could\s+you|can\s+you)\s+)?(?:(?:do\s+not|don['’]t|never)\s+)?"
+ACTION_START = re.compile(r'^'+ACTION_PREFIX+ACTION+r'\b',re.I)
 TASK_INTRO = re.compile(r'\b(?:(?:we|you|I)\s+(?:also\s+)?(?:need|have|want)\s+to|'
                         r'(?:tasks|steps|requests|requirements)\s+(?:are|include)|'
                         r'(?:a\s+few|some|several)\s+things\s+I\s+need\s+from\s+you)\s*[.:]?\s*',re.I)
@@ -49,7 +51,7 @@ def word_coverage(source,result):
     return len(words&target)/len(words) if words else 1
 
 
-def action_items(source):
+def action_items(source,min_items=3):
     """Only split parallel actions, never arbitrary comma-heavy prose.
 
     Decimal/currency commas, quoted strings and code are literal. Conjunctions
@@ -59,7 +61,7 @@ def action_items(source):
     protected += [m.span() for m in re.finditer(r'\d[,.]\d',source)]
     protected += [m.span() for m in re.finditer(r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},\s*\d{4}\b',source,re.I)]
     cuts=[]
-    separator=re.compile(r',|;|\band\s+(?=(?:(?:please|could\s+you|can\s+you)\s+)?'+ACTION+r'\b)',re.I)
+    separator=re.compile(r',|;|\band\s+(?='+ACTION_PREFIX+ACTION+r'\b)',re.I)
     for match in separator.finditer(source):
         if any(a<match.end() and match.start()<b for a,b in protected):continue
         # Parenthesized arguments must never become action boundaries.
@@ -72,10 +74,36 @@ def action_items(source):
         piece=re.sub(r'^and\s+','',piece,flags=re.I)
         if piece:pieces.append(piece)
         offset=end
-    if len(pieces)<3 or any(not ACTION_START.match(piece) or len(piece)>400 for piece in pieces):return []
+    if len(pieces)<min_items or any(not ACTION_START.match(piece) or len(piece)>400 for piece in pieces):return []
     # A later sentence belongs to the explanation, not the last action.
-    if any(re.search(r'[.!?]\s+\S',piece) for piece in pieces):return []
+    for piece in pieces:
+        literal=[m.span() for pattern in (QUOTED,ABBREVIATION) for m in pattern.finditer(piece)]
+        if any(not any(a<=m.start()<b for a,b in literal) for m in re.finditer(r'[.!?]\s+\S',piece)):return []
     return pieces
+
+
+def task_run(raw,start):
+    """Read consecutive task sentences after a task introduction.
+
+    Only imperative actions continue the run. The first explanatory sentence
+    ends it, so priority notes and closing prose do not become extra bullets.
+    Sentence breaks are not item boundaries inside quotes/code/abbreviations.
+    """
+    protected=[m.span() for m in QUOTED.finditer(raw)]
+    protected += [m.span() for m in ABBREVIATION.finditer(raw)]
+    boundaries=re.compile(r'[.!?](?=\s|$)|(?:\r?\n[ \t]*){2,}|[\r\n\u2028\u2029]+(?=\s*'+ACTION_PREFIX+ACTION+r'\b)',re.I)
+    cursor=start;end=start;items=[]
+    for boundary in [*boundaries.finditer(raw,start),None]:
+        if boundary and any(a<=boundary.start()<b for a,b in protected):continue
+        stop=boundary.end() if boundary else len(raw)
+        source=raw[cursor:stop].strip()
+        if not source:
+            cursor=stop;continue
+        parts=action_items(source,min_items=1)
+        if not parts or len(items)+len(parts)>24:break
+        if len(raw[start:stop].encode('utf-8'))>2500:break
+        items.extend(parts);end=stop;cursor=stop
+    return (items,end) if len(items)>=3 else ([],start)
 
 
 class Passage(str):
@@ -187,6 +215,20 @@ def prepare_layout(raw,splitter=None,vocabulary=()):
     for intro in intros:
         start=intro.end()
         if quoted(intro.start(),start) or any(a<=start<b for a,b,_ in changes):continue
+        task=bool(TASK_INTRO.fullmatch(intro.group()))
+        if task:
+            items,end=task_run(raw,start)
+            if not items or any(a<end and start<b for a,b,_ in changes):continue
+            list_start=start
+            while list_start and raw[list_start-1] in ' \t':list_start-=1
+            list_end=end
+            while list_end<len(raw) and raw[list_end] in ' \t\r\n\u2028\u2029':list_end+=1
+            colon='' if list_start and raw[list_start-1]==':' else ':'
+            changes.append((list_start,list_end,colon+'\n'+'\n'.join('- '+item for item in items)+'\n\n'))
+            offset=start
+            for item in items:
+                position=raw.find(item,offset);anchors.append((position,item));offset=position+len(item)
+            continue
         tail=raw[start:];end=len(raw)
         transition=TRANSITION.search(tail)
         sentence=re.search(r'[.!?](?=\s|$)',tail)
@@ -206,13 +248,11 @@ def prepare_layout(raw,splitter=None,vocabulary=()):
                 boundary=bool(transition and start+transition.start()==end)
                 changes.append((start,end,', '.join(items)+(suffix or ('.' if boundary else ''))+('\n\n' if boundary else ' ')))
             continue
-        task=bool(TASK_INTRO.fullmatch(intro.group()))
-        items=action_items(source) if task else known_items(source,vocabulary)
-        if task and not items:continue
+        items=known_items(source,vocabulary)
         if not items:
             parts=[x.strip(' \t\r\n.,!?') for x in CONNECTORS.split(source) if x.strip(' \t\r\n.,!?')]
             if len(parts)>=3:items=checked_items(source,parts)
-        if not items and splitter and model_requests<2 and not TASK_INTRO.fullmatch(intro.group()):
+        if not items and splitter and model_requests<2:
             model_requests+=1
             try:items=checked_items(source,json.loads(splitter(item_prompt(source,intro.group().split()[0]))))
             except (ValueError,TypeError):items=[]

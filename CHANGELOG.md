@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta.6 — prerelease
+
+- Fix task lists when recognition puts each task in a separate sentence instead of a comma-separated clause. Consecutive action sentences following a task introduction stay together and a final “and improve …” action can become its own item.
+- Keep the first explanatory sentence and all following discussion outside the task list. Protect quoted/code text, abbreviations, versions, numeric literals and negative task instructions.
+- Enforce verified task bullets through the source fallback when Qwen returns plain sentences. Cover normal line breaks, blank lines, Unicode separators and both resident/CLI cleanup paths.
+
 ## 1.0.0-beta.5 — prerelease
 
 - Replace the four-comma bullet rule with contextual formatting: ordinary tools, groceries and narrative actions stay inline; parallel tasks/requests and ordinal outputs can become lists.

@@ -18,6 +18,12 @@
     "must_keep": ["microphone", "installer", "settings", "shortcut", "vocabulary", "highest priority", "documentation"]
   },
   {
+    "id": "release_task_sentences",
+    "raw": "Before we release the app, we need to fix the microphone selection issue. Make the installer easier to understand. Check that updates preserve the existing settings. Test the shortcut in different applications and improve the vocabulary manager. The microphone issue is the highest priority because people cannot use dictation if recording does not work. Then the installer can come next. We should also update the documentation so a new user can complete their first dictation without asking us for help.",
+    "bullets": 5, "numbered": 0,
+    "must_keep": ["microphone", "installer", "settings", "shortcut", "vocabulary", "highest priority", "documentation"]
+  },
+  {
     "id": "numbered_outputs",
     "raw": "The application will generate three outputs. The first one is a document containing the SQL queries used during analysis, with a short explanation of what each query does. The second one is a Power BI dashboard showing the important trends and comparisons. The third one is a PDF report containing the findings, limitations, and recommended next steps. These outputs should describe the same dataset and use consistent names for the metrics. Users should be able to download them separately or download everything together after analysis finishes.",
     "bullets": 0, "numbered": 3,
@@ -45,7 +51,7 @@
   {
     "id": "requests_email",
     "raw": "Hi Maya, I wanted to give you a quick update on the analysis app. The basic workflow is working now. A user can upload an Excel file, select the questions they want to investigate, and generate an initial report. We are still working on SQL support and dashboard export. There are a few things I need from you. Could you send me a sample sales dataset, explain which metrics matter most to your team, and share an example of the report format you currently use? Please remove customer names and contact details before sending the file. I originally thought we could finish everything this week, but that was too optimistic. A more realistic target is to finish the prototype next week and then spend a few days testing it. Let me know whether that timeline works for you. Thanks.",
-    "bullets": 3, "numbered": 0,
+    "bullets": 4, "numbered": 0,
     "must_keep": ["Excel", "SQL", "sales dataset", "metrics", "report format", "customer names", "contact details", "too optimistic", "next week"]
   }
 ]

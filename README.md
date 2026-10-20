@@ -1,6 +1,6 @@
 # Vowely
 
-**v1.0.0-beta.5 — Windows installer prerelease**
+**v1.0.0-beta.6 — Windows installer prerelease**
 
 Download the Windows **Setup-x64.exe** from [Releases](https://github.com/DaksheshGautam/vowely/releases). It installs Vowely, Start-menu shortcuts and an uninstaller without a separate Python installation. On completion, the setup screen downloads missing models and engines after you choose **Start setup**. Existing verified files can be reused. The installer includes the current desktop, hold/toggle shortcuts, correction learning and final-result typing.
 
@@ -10,7 +10,7 @@ Audio and transcripts stay on your computer. No external inference APIs, telemet
 
 ## Download and start
 
-1. Download **Vowely-1.0.0-beta.5-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.5) and run it.
+1. Download **Vowely-1.0.0-beta.6-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.6) and run it.
 2. Finish installation, then choose **Start setup** in the model setup screen. It downloads only missing verified models/engines; choose an existing Vowely folder to reuse files. NVIDIA support is optional. No separate Python or developer tools are needed.
 3. Choose **Open Vowely**, complete microphone/shortcut setup, then dictate with your hold or toggle shortcut. Start-menu shortcuts reopen the app or model setup later.
 
@@ -74,6 +74,8 @@ Beta.4 adds final passage context while retaining stable-sentence cleanup during
 Ordinary lists of tools, names and groceries stay within sentences. Distinct tasks, requirements and requests can become bullets; consecutive “the first one is … the second one will be …” descriptions can become numbered items. Source-boundary checks keep introductions and explanations outside detected lists. Common technical multiword boundary hints and your manual vocabulary keep names together; they do not change ASR words. Unknown implicit feature boundaries may use up to two small local Qwen partition requests per block, accepted only when they match the source in order. Automatic layout is best effort, not universal phrase or grammar recognition. Ambiguous boundaries remain prose, and unclear recognized words are preserved rather than guessed.
 
 **Commas alone no longer create bullets.** Shopping messages and descriptions of past actions remain prose even when they contain many commas. Parallel tasks such as “Before release we need to fix login, test updates, and write documentation” receive separate lines. Explicit list commands still take precedence. Quoted commands, code, numeric separators and written dates remain literal.
+
+Task introductions also cover consecutive action sentences: “We need to fix login. Test updates. Write documentation.” can become three bullets. A final “and improve …” action can split into a separate item. The first non-task sentence ends that list, so explanations remain paragraphs. Single/blank line breaks and Unicode line separators do not replace the need to identify the task content. If Qwen returns plain sentences despite a verified task run, the local source-layout fallback still supplies the bullet markers.
 
 Natural cleanup uses short editing examples to remove fillers, duplicate phrases and abandoned false starts and to repair grammar. It can resolve explicit spoken corrections, but numeric literal changes are still rejected; automatic conversion of spoken amounts and times is not guaranteed. Item checks permit grammar edits rather than requiring a verbatim copy of each item. Missing items, lost explanations, omitted recognized technical names, changed negation, changed quoted text/code, broad summaries and unrelated additions can trigger a source-wording fallback. These lexical checks do not prove semantic equivalence. Review both panes, since recognition and cleanup can still be inaccurate. Verbatim and disabled cleanup bypass this feature.
 

@@ -5,9 +5,10 @@ import re
 import threading
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from localflow.config import Config
-from localflow.engines import EngineError,validate_cleanup,cleanup_insertion_ready
+from localflow.engines import Cleaner,EngineError,validate_cleanup,cleanup_insertion_ready
 from localflow.formatting import preserved_cleanup,PreservedCleanupNotice,numbers_preserved,finish_natural_text
 from localflow.natural_layout import prepare_layout,layout_retained
 from localflow.resident import ResidentModels
@@ -16,6 +17,52 @@ CASES=json.loads((Path(__file__).parent/'fixtures/dictation_style.json').read_te
 
 
 class DictationStyleTests(unittest.TestCase):
+    def test_task_sentence_run_splits_the_last_conjunction_and_excludes_explanation(self):
+        raw=next(case['raw'] for case in CASES if case['id']=='release_task_sentences')
+        for source in (raw,raw.replace('. ','.\n'),raw.replace('. ','.\n\n'),raw.replace('. ','.\u2028')):
+            with self.subTest(source=source[:60]):
+                text,anchors=prepare_layout(source)
+                self.assertEqual(len(anchors),5)
+                self.assertIn('- Test the shortcut in different applications\n- improve the vocabulary manager.',text)
+                self.assertIn('\n\nThe microphone issue is the highest priority',text)
+                self.assertNotIn('- The microphone issue',text)
+                self.assertNotIn('- We should also update',text)
+                self.assertTrue(cleanup_insertion_ready(source,text,preserved_cleanup(source,'')[1],Config(cleanup_enabled=True)))
+
+    def test_unformatted_model_response_falls_back_to_the_complete_task_sentence_list(self):
+        raw=next(case['raw'] for case in CASES if case['id']=='release_task_sentences')
+        config=Config(cleanup_enabled=True)
+        runtime=ResidentModels(config,Path('.'));self.addCleanup(runtime.close)
+        runtime.qwen=SimpleNamespace(request=lambda *args:{'content':raw},close=lambda:None)
+        text,warning=runtime.clean(raw,config,threading.Event())
+        self.assertIsInstance(warning,PreservedCleanupNotice)
+        self.assertEqual(len(re.findall(r'(?m)^- ',text)),5)
+        self.assertTrue(cleanup_insertion_ready(raw,text,warning,config))
+        with patch('localflow.engines.require_file'),patch('localflow.engines.run_local',return_value=raw):
+            cli_text,cli_warning=Cleaner(config,Path('.')).clean(raw)
+        self.assertEqual(cli_text,text)
+        self.assertTrue(cleanup_insertion_ready(raw,cli_text,cli_warning,config))
+
+    def test_sentence_task_detection_does_not_turn_narration_or_following_prose_into_tasks(self):
+        for raw in ('We need to discuss the plan. The installer needs work. The microphone is important.',
+                    'Yesterday I fixed login. Tested the installer. Updated the documentation.',
+                    'The label "we need to fix login. Test updates. Write docs." is literal.'):
+            self.assertEqual(prepare_layout(raw)[0],raw)
+        raw='We need to call Dr. Rao tomorrow. Check version 1.2.3. Send the report. The report must stay private.'
+        text,_=prepare_layout(raw)
+        self.assertIn('- call Dr. Rao tomorrow.',text)
+        self.assertIn('- Check version 1.2.3.',text)
+        self.assertIn('\n\nThe report must stay private.',text)
+
+    def test_negative_task_sentences_keep_their_polarity(self):
+        raw='We need to keep files offline. Do not delete original files. Never send recordings. The files remain private.'
+        text,warning=preserved_cleanup(raw,'Model unavailable.')
+        self.assertEqual(len(re.findall(r'(?m)^- ',text)),3)
+        self.assertIn('- Do not delete original files.',text)
+        self.assertIn('- Never send recordings.',text)
+        self.assertIn('\n\nThe files remain private.',text)
+        self.assertTrue(cleanup_insertion_ready(raw,text,warning,Config(cleanup_enabled=True)))
+
     def test_unavailable_model_keeps_contextual_layout_and_all_content(self):
         for case in CASES:
             with self.subTest(case=case['id']):
