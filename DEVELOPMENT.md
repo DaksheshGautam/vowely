@@ -14,10 +14,11 @@ Opt-in correction learning check in a disposable native editor (click its Run bu
 
 ```powershell
 .venv/Scripts/python.exe scripts/check_correction_learning.py
-.venv/Scripts/python.exe scripts/check_correction_learning.py --edge --document-end
+.venv/Scripts/python.exe scripts/check_correction_learning.py --fast
+.venv/Scripts/python.exe scripts/check_correction_learning.py --leave
 ```
 
-This uses real Unicode insertion and Windows text ranges, with synthetic words and an isolated temporary dictionary. It opens no microphone, uses no clipboard and never accesses user documents. It checks stable correction persistence, next-request vocabulary and stopping outside the inserted span. Reports in ignored benchmarks/ contain only the synthetic fixture. Password/changed/denied targets, provider timeouts, debounce/expiry, local persistence and disabled learning are also covered by unit tests. Never commit personal dictionary.json or dictionary.tmp; release packaging rejects them.
+This uses real Unicode insertion and Windows UIA events/text ranges with synthetic words and an isolated temporary dictionary. It opens no microphone, uses no clipboard and never accesses user documents. It checks multiword corrections, edits outside the dictated span, appended prose, completion by clearing or focus change, immediate 15 ms submission, popup contents/focus, persistence and next-request vocabulary. Reports in ignored benchmarks/ contain only the fixture. Unit tests also cover password/changed/denied targets, provider timeouts, draft expiry, local persistence and disabled learning. Never commit personal dictionary.json or dictionary.tmp; release packaging rejects them.
 
 Opt-in public-audio GPU validation after provisioning:
 

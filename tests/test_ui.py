@@ -295,25 +295,30 @@ class UiTests(unittest.TestCase):
                 self.window.finished(self.window.generation,self.final_result())
             self.assertIsNone(self.window.edit_session)
 
-    def test_settled_word_is_saved_and_changed_focus_clears_watch(self):
+    def test_submitted_multiword_corrections_are_saved_and_shown_without_pause(self):
         from localflow.learning import EditSession
-        self.window.edit_session = EditSession('Meet Jan today.',0)
+        self.window.edit_session = EditSession('Meet Jan at Acma.',time.monotonic())
         self.window.edit_target = object()
-        self.window.edit_pending = 'Meet Jan today.'
-        with patch.object(self.window.win,'correction_span',return_value='Meet Jane today.'), \
-             patch('localflow.app.time.monotonic',return_value=1) as now:
+        self.window.edit_pending = 'Meet Jan at Acma.'
+        with patch.object(self.window.win,'correction_update',return_value={'status':'watching'}):
             self.window.poll_learning()
-            now.return_value = 4
+        self.assertEqual(self.window.dictionary.words,[])
+        with patch.object(self.window.win,'correction_update',return_value={'status':'finished','words':['Jane','Acme']}), \
+             patch.object(self.window.win,'clear_correction_watch'), \
+             patch.object(self.window.learning_popup,'show_words') as popup:
             self.window.poll_learning()
-        self.assertEqual(self.window.dictionary.words,['Jane'])
-        self.assertIn('Learned locally',self.window.dictionary_status.text())
-        with patch.object(self.window.win,'correction_span',return_value=None), \
-             patch('localflow.app.time.monotonic',return_value=5), \
-             patch.object(self.window.win,'clear_correction_watch') as forget:
-            self.window.poll_learning()
-            forget.assert_called_once()
+            popup.assert_called_once_with(['Jane','Acme'])
+        self.assertEqual(self.window.dictionary.words,['Jane','Acme'])
         self.assertIsNone(self.window.edit_session)
 
+    def test_learning_popup_does_not_take_focus_and_is_cleared_on_cancel(self):
+        popup = self.window.learning_popup
+        self.assertTrue(popup.windowFlags() & Qt.WindowDoesNotAcceptFocus)
+        self.assertTrue(popup.windowFlags() & Qt.WindowTransparentForInput)
+        popup.show_words(['Jane','Acme'])
+        self.assertEqual(popup.words.text(),'Jane \u00b7 Acme')
+        self.window.abort()
+        self.assertFalse(popup.isVisible())
 
-if __name__ == "__main__":
-    unittest.main()
+
+if __name__ == "__main__": unittest.main()

@@ -5,6 +5,8 @@ import time
 
 
 def probe_loop(connection):
+    import sys
+    sys.coinit_flags = 0  # MTA: UIA event callbacks must run while the pipe waits.
     from .windows import Windows
     native = Windows()
     try:
@@ -19,18 +21,19 @@ def probe_loop(connection):
             if command=='snapshot':
                 target = native._snapshot_direct()
                 connection.send(asdict(target) if target else None)
-            elif command=='forget_correction':
-                native._correction_range = None
-                native._correction_pattern = None
-                native._correction_suffix = ''
-                native._correction_size = 0
-                connection.send(True)
-            elif isinstance(command,tuple) and command[0]=='correction_span':
+            elif isinstance(command,tuple) and command[0]=='forget_correction':
+                words = []
+                if native._draft_watch:
+                    if command[1]: words = native._draft_watch.finish()
+                    native._draft_watch.close()
+                    native._draft_watch = None
+                connection.send(words)
+            elif isinstance(command,tuple) and command[0]=='correction_update':
                 from types import SimpleNamespace
                 from .policy import Target
                 _,data,deny,expected = command
                 data['runtime_id'] = tuple(data['runtime_id'])
-                connection.send(native._correction_span_direct(Target(**data),SimpleNamespace(**deny),expected))
+                connection.send(native._correction_update_direct(Target(**data),SimpleNamespace(**deny),expected))
             else: break
     except (EOFError, BrokenPipeError, OSError):
         pass
@@ -83,12 +86,12 @@ class FocusProbe:
             data['runtime_id'] = tuple(data['runtime_id'])
             return Target(**data)
 
-    def correction_span(self,target,config,expected=None):
+    def correction_update(self,target,config,expected=None):
         deny = {'deny_processes':config.deny_processes,'deny_name_fragments':config.deny_name_fragments}
-        return self.request(('correction_span',asdict(target),deny,expected))
+        return self.request(('correction_update',asdict(target),deny,expected))
 
-    def clear_correction_watch(self):
-        if self.process: self.request('forget_correction')
+    def clear_correction_watch(self,finalize=False):
+        return self.request(('forget_correction',finalize)) if self.process else []
 
     def close(self):
         if self.process:

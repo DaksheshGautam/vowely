@@ -16,7 +16,7 @@ class ProbeTests(unittest.TestCase):
         connection.poll.return_value = False
         probe.process,probe.connection = process,connection
         target = Target(1,2,'editor.exe',(1,2),'','Editor',False,True)
-        self.assertIsNone(probe.correction_span(target,Config(),'Meet Jan.'))
+        self.assertIsNone(probe.correction_update(target,Config(),'Meet Jan.'))
         connection.poll.assert_called_once_with(.35)
         process.terminate.assert_called_once()
 

@@ -30,6 +30,7 @@ from .version import APP_NAME, RELEASE_VERSION
 from .overlay import DictationOverlay
 from .branding import application_icon, identify_windows_app
 from .learning import EditSession, LearnedDictionary, MAX_SPAN
+from .learning_popup import LearningPopup
 
 
 class Signals(QObject):
@@ -145,6 +146,7 @@ class Window(QMainWindow):
         self.live_sequence = 0
         self.replay_pcm = b''
         self.overlay = DictationOverlay()
+        self.learning_popup = LearningPopup()
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
         self.setWindowTitle(f"{APP_NAME} {RELEASE_VERSION} • Offline dictation")
@@ -176,7 +178,7 @@ class Window(QMainWindow):
         form.addRow('Names and vocabulary', self.vocabulary)
         self.learn = QCheckBox('Learn spelling corrections after dictation')
         self.learn.setChecked(self.c.learn_corrections)
-        self.learn.setToolTip('For up to 60 seconds, checks only the recent insertion in the same focused text box. Saves corrected words locally after they settle. Password/sensitive fields are excluded.')
+        self.learn.setToolTip('Compares your edited draft when the box clears or you leave it. Learns multiple corrected words without a typing pause. Only the dictated portion of a small eligible text box is learned.')
         form.addRow(self.learn)
         self.dictionary_button = QPushButton(f'Learned words ({len(self.dictionary.words)})')
         self.dictionary_button.clicked.connect(self.manage_dictionary)
@@ -497,7 +499,7 @@ class Window(QMainWindow):
     def pressed(self):
         if not self.win.registered or self.state != "idle" or self.pool.activeThreadCount():
             return
-        self.stop_learning()
+        self.stop_learning(finalize=True)
         self.target = self.win.snapshot()
         ok, why = check_target(self.target, self.c)
         if not ok and why in ("Password field blocked.", "Application is on the denylist.", "Sensitive field blocked."):
@@ -663,7 +665,7 @@ class Window(QMainWindow):
                 self.edit_target = self.target
                 self.edit_pending = result['text']
                 self.edit_session = EditSession(result['text'],time.monotonic())
-                self.edit_next = time.monotonic()+.4
+                self.edit_next = time.monotonic()+.1
             if inserted and result.get('cleanup_fallback'):
                 message += ' Cleanup partly unavailable or rejected; original words used for those portions.'
         elif self.target is None:
@@ -708,6 +710,7 @@ class Window(QMainWindow):
 
     def abort(self):
         self.stop_learning()
+        self.learning_popup.clear()
         self.overlay.clear()
         self.cancel.set()
         self.generation += 1
@@ -734,30 +737,35 @@ class Window(QMainWindow):
         config.personal_vocabulary = self.dictionary.vocabulary(config.personal_vocabulary)
         return config
 
-    def stop_learning(self):
+    def stop_learning(self,finalize=False):
         if self.edit_session or self.edit_pending:
-            self.win.clear_correction_watch()
+            words = self.win.clear_correction_watch(finalize)
+            if finalize and words: self.save_learned(words)
         self.edit_session = self.edit_target = self.edit_pending = None
-        self.edit_next = time.monotonic()+.75
+        self.edit_next = time.monotonic()+.15
 
     def poll_learning(self):
-        self.edit_next = time.monotonic()+.75
+        self.edit_next = time.monotonic()+.15
         if not self.edit_session: return
         if not self.c.learn_corrections or time.monotonic()>=self.edit_session.deadline:
             self.stop_learning();return
-        text = self.win.correction_span(self.edit_target,self.c,self.edit_pending)
+        update = self.win.correction_update(self.edit_target,self.c,self.edit_pending)
         self.edit_pending = None
-        if text is None:
+        if update is None:
             self.stop_learning();return
-        words = self.edit_session.observe(text,time.monotonic())
-        if not self.edit_session.active:
-            self.stop_learning();return
+        if update.get('status')=='finished':
+            words = update.get('words',[])
+            self.stop_learning()
+            self.save_learned(words)
+
+    def save_learned(self,words):
         if words:
             try:
                 learned = self.dictionary.add(words)
                 if learned:
                     self.dictionary_status.setText('Learned locally: '+', '.join(learned))
                     self.dictionary_button.setText(f'Learned words ({len(self.dictionary.words)})')
+                    self.learning_popup.show_words(learned)
             except OSError:
                 self.dictionary_status.setText('Could not save learned words; dictation is still available.')
                 self.stop_learning()
@@ -818,6 +826,8 @@ class Window(QMainWindow):
         self.tray.hide()
         self.overlay.clear()
         self.overlay.close()
+        self.learning_popup.clear()
+        self.learning_popup.close()
         QApplication.instance().quit()
 
 

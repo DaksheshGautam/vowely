@@ -12,7 +12,8 @@
 | engines.py | Existing CLI recognition/cleanup, conservative output validation and whole-recording CPU fallback |
 | windows.py / probe.py / policy.py | Explicit shortcut reservation, bounded UIA inspection, deny/allow rules, target identity checks and Unicode insertion without automatic clipboard use |
 | config.py | Validated settings and atomic local save |
-| learning.py | Debounced word corrections, in-memory watch, bounded local dictionary and per-request vocabulary |
+| learning.py / draftwatch.py | Token alignment, bounded draft comparison on completion, field-scoped UIA events, local dictionary and per-request vocabulary |
+| learning_popup.py | Click-through, nonactivating notification listing newly added words |
 
 ## Live data flow
 
@@ -34,9 +35,9 @@ Conventional mode retains the original CLI path: each utterance loads its models
 
 ## Correction learning
 
-After final insertion, a 60-second watch verifies the exact inserted text and collapsed caret in the existing disposable UIA helper, then polls every 750 ms. It tracks only the insertion and up to 24 unchanged following anchor characters. Some providers retain numeric endpoints when a corrected word changes length; the right anchor reconstructs the boundary with at most 64 characters of growth per observation. End-of-document insertions require a bounded move to still reach that end. Outside selections, changed identity, denied fields and ambiguous ranges stop the watch. No whole-field read or caret movement occurs.
+After final insertion, a ten-minute watch verifies the exact inserted text and collapsed caret, then reads the small eligible composer through bounded TextPattern DocumentRange.GetText(2001). Oversized fields are rejected. The original dictated span's offsets exclude existing context from learning. UIA TextChanged and ValueValue property callbacks retain the latest draft in the disposable MTA helper while the parent pipe waits. A 150 ms fallback polls only the original focused field; on focus change it finalizes cached text without reading the new field. Field metadata is rechecked for password/sensitive/read-only/identity changes. Provider failure and expiry discard data. All IPC queries retain the 350 ms timeout.
 
-A two-second stable single-token replacement saves only the new spelling to dictionary.json. Token additions/deletions and multiword rewrites end the session; case/punctuation-only changes are ignored. Manual vocabulary plus recent learned spellings is copied into the next recording's configuration. Vocabulary is absent from the worker signature, so hints update without reloading Whisper/Qwen. In-flight requests retain their original settings. Clear/Cancel/Pause/new recording/expiry/focus change forget the baseline and helper range.
+Clearing/leaving the field or starting another dictation compares the last draft with the original baseline and finalizes up to 24 replacement spellings together, without a debounce interval. Sequence alignment ignores pure additions/deletions and out-of-scope edits; similar split/merged spelling blocks are supported. Unequal blocks containing appended prose use close-spelling matching rather than learning all new words. Case/punctuation-only, numeric and address/path edits are excluded. Only corrected words reach the parent/dictionary; a nonactivating popup displays newly added entries. No sent-message history is scanned and no submission key/button is intercepted. Cached text can be incomplete on providers that omit/coalesce events; no universal server-delivery claim is made. Clear/Cancel/Pause/Quit discard pending work. Manual vocabulary plus recent learned spellings enters the next recording configuration without reloading models.
 
 ## Validation and limits
 

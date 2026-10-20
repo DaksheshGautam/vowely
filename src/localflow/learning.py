@@ -1,4 +1,5 @@
-"""Local spelling hints from settled edits to a recent dictation span only."""
+"""Local spelling hints from edits to a recently dictated draft."""
+from difflib import SequenceMatcher
 import json
 from pathlib import Path
 import re
@@ -44,24 +45,43 @@ def valid_word(word):
             and (len(word)<24 or '_' not in word))
 
 
-def corrected_words(before,after):
-    """Only one-to-one word edits; additions/deletions are not spelling lessons."""
+def corrected_words(before,after,scope=None):
+    """Align drafts; learn replacements in dictated text, never pure additions."""
     old,new = list(word_tokens(before)),list(word_tokens(after))
-    if len(old)!=len(new) or not old: return []
-    changes = [(a,b) for a,b in zip(old,new) if a.text!=b.text]
-    if len(changes)!=1: return []
     result = []
-    for a,b in changes:
-        source,word = a.text,b.text
-        if source.casefold()==word.casefold(): continue
-        if not valid_word(source) or not valid_word(word): return []
-        # Exclude components of addresses, URLs and paths, not just their digits.
-        for text,match in ((before,a),(after,b)):
-            left,right = text[:match.start],text[match.end:]
-            if (left and left[-1] in '@:/\\=') or (right and right[0] in '@:/\\='): return []
-            if re.search(r'\w\.$',left) or re.match(r'\.\w',right): return []
-        result.append(word)
-    return list(dict.fromkeys(result))
+    def eligible(text,match):
+        if not valid_word(match.text): return False
+        left,right = text[:match.start],text[match.end:]
+        if (left and left[-1] in '@:/\\=') or (right and right[0] in '@:/\\='): return False
+        return not (re.search(r'\w\.$',left) or re.match(r'\.\w',right))
+    aligned = SequenceMatcher(None,[w.text.casefold() for w in old],
+                              [w.text.casefold() for w in new],autojunk=False)
+    for kind,a,b,c,d in aligned.get_opcodes():
+        if kind!='replace': continue
+        source,changed = old[a:b],new[c:d]
+        if not source or not changed or len(changed)>24: continue
+        if scope and any(w.start<scope[0] or w.end>scope[1] for w in source): continue
+        # Unequal token counts can mean split/merged names, or newly added prose.
+        # Accept only blocks with similar combined spelling in that case.
+        if len(source)==len(changed): pairs = list(zip(source,changed))
+        elif SequenceMatcher(None,''.join(w.text.casefold() for w in source),
+                             ''.join(w.text.casefold() for w in changed),autojunk=False).ratio()>=.68:
+            pairs = [(source[0],w) for w in changed]
+        else:
+            # A tail correction and an appended sentence share one diff block.
+            # Match close spellings only; never learn every appended word.
+            pairs,offset = [],0
+            for original in source:
+                scores = [(SequenceMatcher(None,original.text.casefold(),w.text.casefold(),autojunk=False).ratio(),i,w)
+                          for i,w in enumerate(changed[offset:],offset)]
+                if not scores: break
+                ratio,index,word = max(scores,key=lambda item:item[0])
+                if ratio>=.68:
+                    pairs.append((original,word));offset=index+1
+        for original,replacement in pairs:
+            if not eligible(before,original) or not eligible(after,replacement): continue
+            if original.text.casefold()!=replacement.text.casefold(): result.append(replacement.text)
+    return list(dict.fromkeys(result))[:24]
 
 
 class LearnedDictionary:
@@ -113,11 +133,11 @@ class LearnedDictionary:
 
 
 class EditSession:
-    """In-memory baseline; never writes transcript text to the dictionary."""
-    def __init__(self,text,now):
+    """Compare the last draft on completion; typing never starts a save timer."""
+    def __init__(self,text,now,scope=None):
         self.baseline = self.last = normalized_text(text)
-        self.deadline = now+60
-        self.changed_at = now
+        self.scope = scope
+        self.deadline = now+600
         self.active = 0<len(self.baseline)<=MAX_SPAN
 
     def observe(self,text,now):
@@ -125,13 +145,13 @@ class EditSession:
             self.active = False
             return []
         text = normalized_text(text)
-        if text!=self.last:
-            self.last,self.changed_at = text,now
-            return []
-        if text==self.baseline or now-self.changed_at<2: return []
-        learned = corrected_words(self.baseline,text)
-        # Do not treat a later appended sentence as part of this dictation.
-        if not learned and [m.text.casefold() for m in word_tokens(text)]!=[m.text.casefold() for m in word_tokens(self.baseline)]:
-            self.active = False
-        self.baseline = text
-        return learned
+        if not text.strip(): return self.finish()
+        self.last = text
+        return []
+
+    def finish(self):
+        if not self.active: return []
+        self.active = False
+        words = corrected_words(self.baseline,self.last,self.scope)
+        self.baseline = self.last = ''
+        return words

@@ -2,7 +2,7 @@
 
 **v0.1.0-alpha.1 — Windows prerelease**
 
-The main branch also contains **0.1.0-alpha.8 development changes** for local spelling learning, the lavender V app icon, automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
+The main branch also contains **0.1.0-alpha.9 development changes** for draft-based spelling learning with a words-added popup, the lavender V app icon, automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
 
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
@@ -35,13 +35,15 @@ Release the shortcut and stay in the same field while the loading ring runs. Vow
 
 If cleanup is rejected or unavailable, the unchanged recognized wording is used for those portions and final typing can continue; the indicator reports the source fallback. Rejected Qwen rewrites are never typed. Changed focus, held keys, cancellation, unknown fields and incomplete final recognition still prevent typing and show a specific reason. Manual recording and WAV tests remain preview-only. Automatic typing can replace selected text just like ordinary typing; cleanup can still make mistakes even when validation passes.
 
-## Learn from spelling corrections (alpha.8 development)
+## Learn from spelling corrections (alpha.9 development)
 
-After Vowely types a result, correct **one word at a time in that same box** and leave it unchanged for about two seconds. For 60 seconds after insertion, Vowely can learn settled single-word replacements. Only the corrected spelling is saved locally and supplied to subsequent Whisper/Qwen requests as a hint. Models are not retrained, and hints do not guarantee recognition. No model reload is needed.
+After Vowely types a result, edit any number of words in that box and continue typing normally. When the box clears (as commonly happens after Send), you leave the field, or you start another dictation, Vowely compares the latest available draft with its original text. **No typing pause is required.** A small, click-through popup lists newly added spellings without taking focus. It dismisses after eight seconds. Only corrected spellings are saved locally and supplied to future Whisper/Qwen requests as hints. Models are not retrained and hints cannot guarantee recognition.
 
 Learning is on by default. **Learned words** in settings lets you inspect/remove entries. Pause dictation and uncheck **Learn spelling corrections after dictation** to stop new learning. Existing hints remain until removed. Manual vocabulary has priority within the 32-hint request limit; the newest learned words fill remaining slots. At most 128 words are retained.
 
-Leaving the field, moving outside the insertion, new dictation, Clear, Cancel, Pause or Quit stops the watcher. Added/deleted words, multiword rewrites, numbers, case/punctuation-only edits and address/path components are ignored. Record-a-test/WAV previews do not learn. Compatible Windows UI Automation text ranges are required; unsupported or ambiguous ranges safely skip learning. Insertions over 2,000 characters are not watched. A small unchanged fragment after the insertion helps track its boundary; it is never saved. See [PRIVACY.md](PRIVACY.md).
+The watcher uses the edited draft, without scanning sent-message history or identifying particular Send buttons. It can learn multiple replacements, including similar split/merged spellings. Pure additions/deletions, numbers, case/punctuation-only edits and address/path components are ignored. Changes outside the originally dictated portion are excluded. Existing/newly typed context is used only in RAM for alignment. Clear, Cancel, Pause, Quit, expiry or accessibility/security failures discard the watch. Record-a-test/WAV previews do not learn.
+
+Windows has no universal submission event. Compatible UI Automation TextPattern support and a complete field of at most 2,000 characters are required. UIA text/value events retain edits between polls; providers that omit/coalesce events can miss edits made immediately before clearing/leaving. The fallback checks every 150 ms. Unsupported or oversized fields skip learning without blocking dictation. Watches expire after ten minutes. Leaving or clearing an unsent draft also finalizes spelling hints; this is edit completion detection, not proof that a server received a message. See [PRIVACY.md](PRIVACY.md).
 
 ## Modes
 
