@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock
 
 from localflow.config import Config
-from localflow.engines import validate_cleanup,cleanup_insertion_ready
+from localflow.engines import EngineError,validate_cleanup,cleanup_insertion_ready
 from localflow.formatting import preserved_cleanup
 from localflow.natural_layout import Passage,prepare_layout,checked_items,layout_retained
 from localflow.resident import ResidentModels
@@ -19,8 +19,8 @@ class NaturalLayoutTests(unittest.TestCase):
 
     def test_unpunctuated_tools_and_ordinal_outputs_keep_the_explanation(self):
         text,anchors=prepare_layout(self.SOURCE)
-        self.assertEqual(sum(line.startswith('- ') for line in text.splitlines()),7)
-        self.assertIn('- lang graph\n- python\n- lang chain\n- sql\n- power bi\n- agents\n- planner',text)
+        self.assertEqual(sum(line.startswith('- ') for line in text.splitlines()),0)
+        self.assertIn('lang graph, python, lang chain, sql, power bi, agents, planner',text)
         self.assertIn('the main purpose is analysis. It gives three files',text)
         self.assertIn('1. SQL queries\n2. a Power BI file\n3. a report.',text)
         self.assertNotIn('second one',text)
@@ -29,7 +29,8 @@ class NaturalLayoutTests(unittest.TestCase):
 
     def test_user_multiword_vocabulary_protects_boundaries_without_changing_spelling(self):
         text,_=prepare_layout('Our dependencies include Alpha Kit Beta Works and Delta Suite.',vocabulary=['Alpha Kit','Beta Works','Delta Suite'])
-        self.assertIn('- Alpha Kit\n- Beta Works\n- Delta Suite',text)
+        self.assertIn('Alpha Kit, Beta Works, Delta Suite',text)
+        self.assertFalse(text.startswith('- '))
 
     def test_explicit_bullet_style_takes_precedence_over_ordinal_item_words(self):
         text,_=prepare_layout('Make a bullet list. First item milk. Second item bread.')
@@ -58,12 +59,12 @@ class NaturalLayoutTests(unittest.TestCase):
     def test_summary_that_drops_tools_or_explanation_is_not_accepted(self):
         text,anchors=prepare_layout(self.SOURCE)
         self.assertFalse(layout_retained(text,'An app for data analysis.',anchors))
-        self.assertFalse(layout_retained(text,text.replace('- python\n',''),anchors))
+        with self.assertRaises(EngineError):validate_cleanup(self.SOURCE,text.replace('python, ',''))
         self.assertFalse(layout_retained(text,text.replace('the main purpose is analysis. It gives three files','It works.'),anchors))
 
     def test_model_failure_keeps_safe_natural_layout_and_explicit_paragraph_commands(self):
         text,warning=preserved_cleanup(self.SOURCE,'Model unavailable.')
-        self.assertIn('1. SQL queries',text);self.assertIn('- python',text)
+        self.assertIn('1. SQL queries',text);self.assertIn('lang graph, python, lang chain',text)
         self.assertTrue(cleanup_insertion_ready(self.SOURCE,text,warning,Config(cleanup_enabled=True)))
         text,_=preserved_cleanup('Hello. Next paragraph. Goodbye.','Model unavailable.')
         self.assertEqual(text,'Hello.\n\nGoodbye.')
@@ -72,7 +73,7 @@ class NaturalLayoutTests(unittest.TestCase):
         c=Config(cleanup_enabled=True);runtime=ResidentModels(c,Path('.'));self.addCleanup(runtime.close)
         runtime.qwen=SimpleNamespace(request=Mock(return_value={'content':'This app helps with analysis.'}),close=lambda:None)
         text,warning=runtime.clean(Passage(self.SOURCE),c,threading.Event())
-        self.assertIn('- python',text);self.assertIn('1. SQL queries',text)
+        self.assertIn('lang graph, python, lang chain',text);self.assertIn('1. SQL queries',text)
         self.assertTrue(cleanup_insertion_ready(self.SOURCE,text,warning,c))
 
 

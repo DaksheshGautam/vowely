@@ -1,0 +1,51 @@
+[
+  {
+    "id": "narrative",
+    "raw": "Hi, I wanted to explain what happened today. I opened the project, checked the microphone, tested recordings, changed the settings, and restarted the app. After that everything started working properly. I am using Python, Whisper, Qwen, and PySide6, but I am still learning how the different parts connect. The biggest problem is that transcription sometimes looks like a rough transcript instead of something I would send to another person. I want to keep my meaning while making the sentences easier to read.",
+    "bullets": 0, "numbered": 0,
+    "must_keep": ["Python", "Whisper", "Qwen", "PySide6", "microphone", "meaning"]
+  },
+  {
+    "id": "shopping",
+    "raw": "I am going shopping this evening and I need milk, bread, eggs, tomatoes, onions, rice, and coffee. Please do not buy the large coffee packet because we still have some at home. I also need to stop at the pharmacy to collect my prescription. After shopping I will come home and prepare dinner. If you finish work early you can meet me near the supermarket, but there is no need to rush. We can order the remaining groceries tomorrow if anything is unavailable.",
+    "bullets": 0, "numbered": 0,
+    "must_keep": ["milk", "bread", "eggs", "tomatoes", "onions", "rice", "coffee", "pharmacy", "prescription", "tomorrow"]
+  },
+  {
+    "id": "release_tasks",
+    "raw": "Before we release the app we need to fix the microphone selection issue, make the installer easier to understand, check that updates preserve the existing settings, test the shortcut in different applications, and improve the vocabulary manager. The microphone issue is the highest priority because people cannot use dictation if recording does not work. The installer can come next. We should also update the documentation so a new user can complete their first dictation without asking us for help.",
+    "bullets": 5, "numbered": 0,
+    "must_keep": ["microphone", "installer", "settings", "shortcut", "vocabulary", "highest priority", "documentation"]
+  },
+  {
+    "id": "numbered_outputs",
+    "raw": "The application will generate three outputs. The first one is a document containing the SQL queries used during analysis, with a short explanation of what each query does. The second one is a Power BI dashboard showing the important trends and comparisons. The third one is a PDF report containing the findings, limitations, and recommended next steps. These outputs should describe the same dataset and use consistent names for the metrics. Users should be able to download them separately or download everything together after analysis finishes.",
+    "bullets": 0, "numbered": 3,
+    "must_keep": ["SQL", "Power BI", "PDF", "limitations", "same dataset", "separately"]
+  },
+  {
+    "id": "mixed_passage",
+    "raw": "I am building a local voice typing application. The main technologies are Python PySide6 Whisper and Qwen. Whisper converts recordings into text and Qwen cleans up the wording. Everything related to speech processing runs on the user computer. There are three things I want to improve next. The first one is accuracy, especially for names and technical terms. The second one is formatting, including paragraphs, bullet points, and numbered lists. The third one is reliability when inserting the result into another application. For testing I use a chat app and a basic text editor. I do not want the app to send a message automatically or move the cursor into another window. It should insert the finished text and let me decide what to do next.",
+    "bullets": 0, "numbered": 3,
+    "must_keep": ["Python", "PySide6", "Whisper", "Qwen", "accuracy", "formatting", "reliability", "automatically", "cursor"]
+  },
+  {
+    "id": "disfluencies",
+    "raw": "Hi um the report is finished the report is finished and I will send it tomorrow. The budget is ₹15,000, not ₹50,000. We need 12 licenses for the first month and 20 licenses after that. I was thinking we should cancel the project, no, I mean cancel the old subscription, not the project. Please keep the existing recordings until I have checked the results. Do not delete the original files. You can delete the temporary copies after the review is complete.",
+    "bullets": 0, "numbered": 0,
+    "must_keep": ["tomorrow", "₹15,000", "₹50,000", "12", "20", "old subscription", "original files", "temporary copies"],
+    "deduplicate": "report is finished"
+  },
+  {
+    "id": "explicit_mixed_lists",
+    "raw": "Please review the following before publishing the release. New paragraph. Bullet list. First item check that microphone recording works. Next item verify that existing settings survive the update. Next item confirm that closing the window keeps dictation available in the tray. End list. New paragraph. The installation process has three steps. Numbered list. Number one open the installer. Number two select the installation location. Number three finish setup and launch the app. End list. New paragraph. If any of these checks fail keep the release as a draft and describe the problem clearly.",
+    "bullets": 3, "numbered": 3,
+    "must_keep": ["microphone", "settings", "tray", "installer", "location", "draft", "problem"]
+  },
+  {
+    "id": "requests_email",
+    "raw": "Hi Maya, I wanted to give you a quick update on the analysis app. The basic workflow is working now. A user can upload an Excel file, select the questions they want to investigate, and generate an initial report. We are still working on SQL support and dashboard export. There are a few things I need from you. Could you send me a sample sales dataset, explain which metrics matter most to your team, and share an example of the report format you currently use? Please remove customer names and contact details before sending the file. I originally thought we could finish everything this week, but that was too optimistic. A more realistic target is to finish the prototype next week and then spend a few days testing it. Let me know whether that timeline works for you. Thanks.",
+    "bullets": 3, "numbered": 0,
+    "must_keep": ["Excel", "SQL", "sales dataset", "metrics", "report format", "customer names", "contact details", "too optimistic", "next week"]
+  }
+]

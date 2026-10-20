@@ -1,6 +1,6 @@
 # Vowely
 
-**v1.0.0-beta.4 — Windows installer prerelease**
+**v1.0.0-beta.5 — Windows installer prerelease**
 
 Download the Windows **Setup-x64.exe** from [Releases](https://github.com/DaksheshGautam/vowely/releases). It installs Vowely, Start-menu shortcuts and an uninstaller without a separate Python installation. On completion, the setup screen downloads missing models and engines after you choose **Start setup**. Existing verified files can be reused. The installer includes the current desktop, hold/toggle shortcuts, correction learning and final-result typing.
 
@@ -10,7 +10,7 @@ Audio and transcripts stay on your computer. No external inference APIs, telemet
 
 ## Download and start
 
-1. Download **Vowely-1.0.0-beta.4-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.4) and run it.
+1. Download **Vowely-1.0.0-beta.5-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.5) and run it.
 2. Finish installation, then choose **Start setup** in the model setup screen. It downloads only missing verified models/engines; choose an existing Vowely folder to reuse files. NVIDIA support is optional. No separate Python or developer tools are needed.
 3. Choose **Open Vowely**, complete microphone/shortcut setup, then dictate with your hold or toggle shortcut. Start-menu shortcuts reopen the app or model setup later.
 
@@ -67,15 +67,17 @@ Windows has no universal submission event. Compatible UI Automation TextPattern 
 
 When cleanup is disabled, every mode returns raw recognition. Names and vocabulary are local spelling hints, not guaranteed corrections. Provisional text can change; cleanup may introduce mistakes. Review the original and cleaned panes.
 
-### Automatic lists and spoken formatting (alpha.3 development)
+### Contextual lists and spoken formatting
 
 Beta.4 adds final passage context while retaining stable-sentence cleanup during recording. At Stop, the final ASR text is formatted together when it fits the local model; longer recordings use blocks of at most 2,500 UTF-8 bytes, preferably ending at sentence/paragraph boundaries. Oversized unbroken code/identifiers retain the existing source fallback. This is the current recording, not previous recordings or chat history. A final pass can add CPU processing time.
 
-Natural enumerations such as “tools such as …”, “features include …” and “the first one is … the second one will be …” can become bullets or numbered items without explicit commands or four commas. Source-boundary checks keep introductions and explanations outside detected lists. Common technical multiword boundary hints and your manual vocabulary keep names together; they do not change ASR words. Unknown implicit boundaries may use up to two small local Qwen partition requests per block, accepted only when they match the source in order. Automatic layout is best effort, not universal phrase or grammar recognition. Ambiguous boundaries remain prose, and unclear recognized words are preserved rather than guessed. Detected lists whose items or explanation are dropped by a model summary fall back to source wording and verified layout.
+Ordinary lists of tools, names and groceries stay within sentences. Distinct tasks, requirements and requests can become bullets; consecutive “the first one is … the second one will be …” descriptions can become numbered items. Source-boundary checks keep introductions and explanations outside detected lists. Common technical multiword boundary hints and your manual vocabulary keep names together; they do not change ASR words. Unknown implicit feature boundaries may use up to two small local Qwen partition requests per block, accepted only when they match the source in order. Automatic layout is best effort, not universal phrase or grammar recognition. Ambiguous boundaries remain prose, and unclear recognized words are preserved rather than guessed.
 
-With cleanup enabled in Natural or Developer mode, **four or more delimiter commas** automatically produce bullets. For example, `milk, bread, eggs, rice, apples` becomes five bullet lines. Three commas keep prose. Commas inside numeric literals such as ₹5,000, quotes, code/parentheses and written dates such as October 20, 2026 do not count. This is a simple layout heuristic and can also turn comma-heavy prose into a list. It uses Whisper's recognised punctuation, not spoken words such as “comma”.
+**Commas alone no longer create bullets.** Shopping messages and descriptions of past actions remain prose even when they contain many commas. Parallel tasks such as “Before release we need to fix login, test updates, and write documentation” receive separate lines. Explicit list commands still take precedence. Quoted commands, code, numeric separators and written dates remain literal.
 
-Qwen receives the separated items together. If it returns prose, merges item boundaries, fails or changes protected numbers, a local layout fallback retains the original items as bullets. Review both panes, since recognition and cleanup can still be inaccurate. Verbatim and disabled cleanup bypass this feature.
+Natural cleanup uses short editing examples to remove fillers, duplicate phrases and abandoned false starts and to repair grammar. It can resolve explicit spoken corrections, but numeric literal changes are still rejected; automatic conversion of spoken amounts and times is not guaranteed. Item checks permit grammar edits rather than requiring a verbatim copy of each item. Missing items, lost explanations, omitted recognized technical names, changed negation, changed quoted text/code, broad summaries and unrelated additions can trigger a source-wording fallback. These lexical checks do not prove semantic equivalence. Review both panes, since recognition and cleanup can still be inaccurate. Verbatim and disabled cleanup bypass this feature.
+
+A local finishing step removes exact adjacent repeated phrases on one line and explicit restarts of the same verb such as “cancel the project, no, I mean cancel the subscription”. Quoted/code text, numerical revisions, negative prefixes and separate list items stay protected. It does not infer arbitrary corrections or rewrite ambiguous phrases. Rejected/unavailable Qwen cleanup still uses the conservative source-wording fallback rather than an unvalidated edit.
 
 With cleanup enabled in Natural or Developer mode, say **“Make a bullet list. First point buy milk. Next point buy bread.”** for a two-line bullet list, or **“Make a numbered list…”** for `1.`, `2.` items. Say **“new paragraph”**, **“next paragraph”**, **“start a paragraph”**, **“begin a paragraph”**, **“paragraph break”** or **“blank line”** for a blank line. Say **“new line”** or **“next line”** for one line break within the current recording. These break commands have a local fallback even when Qwen is unavailable or returns the command unchanged. Quoted commands and code remain literal. Qwen may also add paragraph breaks at topic changes; review them. Verbatim preserves the recognised words and bypasses these changes.
 

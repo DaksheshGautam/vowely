@@ -18,7 +18,7 @@ import time
 import wave
 
 from .engines import Cancelled, EngineError, cleanup_prompt, require_file, validate_cleanup
-from .formatting import preserved_cleanup
+from .formatting import preserved_cleanup,finish_natural_text
 from .config import MAX_RECORDING_SECONDS
 from .natural_layout import Passage,prepare_layout,layout_retained
 
@@ -315,6 +315,7 @@ class ResidentModels:
                 return text
             source,anchors=prepare_layout(raw,(lambda prompt:generate(prompt,256)) if isinstance(raw,Passage) else None,config.personal_vocabulary)
             text=generate(cleanup_prompt(source,config.mode,config.personal_vocabulary))
+            if config.mode=='Natural':text=finish_natural_text(text)
             if cancel.is_set(): raise Cancelled('Cancelled')
             if anchors and not layout_retained(source,text,anchors):
                 fallback,warning=preserved_cleanup(raw,'Cleanup rewrite rejected; source formatting preserved.')

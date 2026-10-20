@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta.5 — prerelease
+
+- Replace the four-comma bullet rule with contextual formatting: ordinary tools, groceries and narrative actions stay inline; parallel tasks/requests and ordinal outputs can become lists.
+- Give Natural Qwen cleanup compact editing examples for fillers, repeated phrases, grammar and explicit corrections. Preserve list introductions and closing explanations, with grammar-tolerant item checks.
+- Finish exact adjacent phrase repetitions and explicit same-verb “no, I mean” restarts locally; protect quoted/code text, numerical revisions and negative prefixes. This is bounded editing, not general interpretation of every correction.
+- Add local fallbacks for mixed explicit bullet/numbered commands and checks for content coverage, quoted/code literals, negation and recognized technical terms. Numeric literal changes remain rejected.
+- Permit separate coherent numbered lists to restart at one after a paragraph break, without ignoring changed numeric content.
+- Add eight longer synthetic style cases, regression tests and an opt-in local Qwen benchmark. Dictation, microphone capture, hotkeys, insertion, dictionary storage and offline operation retain their existing paths.
+
 ## 1.0.0-beta.4 — prerelease
 
 - Stable completed sentences still go to Qwen during recording. After Stop, final formatting uses passage context, split into bounded blocks for the local model rather than losing long recordings to the old whole-text cleanup limit.

@@ -44,10 +44,10 @@ class FormattingTests(unittest.TestCase):
             raw='The string '+quoted+' is a label.'
             self.assertEqual(validate_cleanup(raw,raw),raw)
 
-    def test_four_commas_trigger_bullets_but_three_do_not(self):
+    def test_comma_count_does_not_force_ordinary_names_into_bullets(self):
         raw = 'Milk, bread, eggs, rice, apples.'
         expected = '- Milk\n- bread\n- eggs\n- rice\n- apples.'
-        self.assertEqual(validate_cleanup(raw,raw),expected)
+        self.assertEqual(validate_cleanup(raw,raw),raw)
         self.assertEqual(validate_cleanup(raw,expected),expected)
         short = 'Milk, bread, eggs, rice.'
         self.assertEqual(comma_list_items(short),[])
@@ -75,30 +75,32 @@ class FormattingTests(unittest.TestCase):
 
     def test_model_merging_items_falls_back_to_source_layout(self):
         raw = 'Milk, bread, eggs, rice, apples.'
-        expected = '- Milk\n- bread\n- eggs\n- rice\n- apples.'
-        self.assertEqual(validate_cleanup(raw,'Milk and bread and eggs and rice and apples.'),expected)
-        self.assertEqual(validate_cleanup(raw,'- Milk and bread\n- Eggs and rice and apples.'),expected)
+        expected = 'Milk and bread and eggs and rice and apples.'
+        self.assertEqual(validate_cleanup(raw,expected),expected)
+        # A comma count does not override the model's context-based decision.
+        model='- Milk and bread\n- Eggs and rice and apples.'
+        self.assertEqual(validate_cleanup(raw,model),model)
 
     def test_auto_list_prompt_has_preformatted_items_without_spoken_cues(self):
         for mode in ('Natural','Developer'):
-            prompt = cleanup_prompt('Milk, bread, eggs, rice, apples.',mode)
-            self.assertIn('four or more delimiter commas',prompt)
-            self.assertIn('- Milk\n- bread\n- eggs\n- rice\n- apples.',prompt)
-            self.assertNotIn('four or more delimiter commas',cleanup_prompt('Milk, bread, eggs, rice.',mode))
+            prompt = cleanup_prompt('Fix login, test updates, write docs.',mode)
+            self.assertIn('parallel actions',prompt)
+            self.assertIn('- Fix login\n- test updates\n- write docs.',prompt)
+            self.assertNotIn('parallel actions',cleanup_prompt('Milk, bread, eggs, rice, apples.',mode))
 
     def test_explicit_layout_and_existing_lists_take_precedence(self):
         self.assertEqual(comma_list_items('Numbered list. Milk, bread, eggs, rice, apples.'),[])
         self.assertEqual(comma_list_items('- Milk, bread, eggs, rice, apples.'),[])
         self.assertEqual(comma_list_items('Milk,, bread, eggs, rice, apples.'),[])
 
-    def test_live_comma_list_waits_for_stable_sentence_then_keeps_context(self):
+    def test_comma_heavy_prose_keeps_sentence_cleanup_and_final_passage_context(self):
         raw = 'Buy milk, bread, eggs. Bring rice, apples, tea.'
         session = StreamingSession(None,Config(cleanup_enabled=True),Path('.'))
         with session._condition:
             session._accept_snapshot(raw)
             self.assertFalse(session._cleanup)
             session._accept_snapshot(raw)
-            self.assertEqual(session._cleanup[0][2],raw)
+            self.assertEqual([job[2] for job in session._cleanup],['Buy milk, bread, eggs.','Bring rice, apples, tea.'])
             session._accept_snapshot(raw+' Also tea',final=True)
             self.assertEqual(session._cleanup[0][2],raw+' Also tea')
 
