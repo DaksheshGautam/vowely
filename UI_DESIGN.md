@@ -3,7 +3,8 @@
 The alpha.9 engine is retained behind a new PySide6 presentation layer. The
 reference artwork guides the charcoal/lavender/peach palette, rounded surfaces,
 brand placement and hierarchy. It does not introduce history, downloads, cloud
-features, extra models, startup registration or automatic updates.
+features, extra models or startup registration. The beta adds a dedicated update
+page for GitHub checks and explicit installer download/restart.
 
 | Destination | Existing controls and operations |
 |---|---|
@@ -15,6 +16,7 @@ features, extra models, startup registration or automatic updates.
 | Settings / Dictation | Separate hold and optional toggle shortcut pickers, supported-key guidance, Natural/Developer/Verbatim, language, auto-type and recognition settings link |
 | Settings / Performance | Threads, maximum recording duration, inference timeout; all existing engine/file paths remain preserved |
 | Settings / Privacy | Automatic typing policy explanation, editable process/name denylists, local retention and clipboard contract |
+| Settings / Updates | Optional daily idle checks, stable/prerelease choice, release notes, cancellable verified downloads and explicit install/restart; all network work uses a separate worker pool |
 | Help & diagnostics | Explicit microphone test, manual preview recording, local WAV replay, async file/dependency checks, setup steps, version and offline troubleshooting |
 | Onboarding | Welcome, real microphone level test, async model presence checks, shortcut validation, real sample dictation through the existing pipeline; explicit skip/revisit |
 | System tray | Open Home/editor/vocabulary/models/settings/help, pause/resume, cancel, free memory, quit |

@@ -27,6 +27,8 @@ def run(root, report_path):
         report['setup_steps'] = window.ui.setup_stack.count()
         report['shared_current_result'] = window.ui.home_preview.document() is window.preview.document()
         report['shortcut_controls_loaded'] = window.hotkey.text()==window.c.hotkey and window.toggle_hotkey.text()==window.c.toggle_hotkey
+        report['update_controls_loaded'] = window.ui.settings_tabs.tabText(4)=='Updates' and not window.updates.auto_timer.isActive()
+        report['update_helper_bundled'] = (Path(__file__).parent/'assets/update_helper.ps1').is_file()
         report['local_theme_assets'] = all((Path(__file__).parent/'assets'/name).is_file() for name in ('check.svg','chevron.svg','vowely.ico','vowely.png'))
         def finish():
             try:
@@ -39,7 +41,7 @@ def run(root, report_path):
             window.quit()
         QTimer.singleShot(1800, finish)
         app.exec()
-        report['success'] = all(report.get(k) is True for k in ('starts_disarmed','microphone_closed','probe_process_alive','bounded_probe_returned','icon_loaded','shared_current_result','local_theme_assets','shortcut_controls_loaded')) and report['setup_steps']==4 and len(report['desktop_pages'])==6
+        report['success'] = all(report.get(k) is True for k in ('starts_disarmed','microphone_closed','probe_process_alive','bounded_probe_returned','icon_loaded','shared_current_result','local_theme_assets','shortcut_controls_loaded','update_controls_loaded','update_helper_bundled')) and report['setup_steps']==4 and len(report['desktop_pages'])==6
     except Exception:
         report['success'] = False
         report['error'] = traceback.format_exc()

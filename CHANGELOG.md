@@ -1,6 +1,12 @@
 # Changelog
 
-Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Alpha.12 is the current installable prerelease.
+## 1.0.0-beta.1 — prerelease
+
+- Settings / Updates and tray checks, optional daily idle checks and selectable prerelease channel. Semantic version selection ignores historical release order and source-only archives.
+- Explicit cancellable installer download with SHA-256/GitHub-digest verification, progress, bounded requests, resume and retry. No user dictation data is transmitted.
+- Verified external install/restart handoff preserves program location and separate model/profile data. It waits for shutdown, rechecks the installer, reports failures/reboot requirements and protects unsaved results.
+
+Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.1 is the current installable prerelease.
 
 ## 0.1.0-alpha.12 — installer prerelease
 

@@ -1,4 +1,4 @@
-param([ValidateSet('app','app-update','app-microphones','app-accuracy','app-recovery','app-streaming','app-sentences','app-whisper-endpoints','app-prerelease','app-formatting','app-comma-lists','app-orb','app-automatic','app-final-insertion','app-branding','app-learning','app-draft-learning','app-desktop','app-shortcuts','app-shortcuts-final','app-installer')][string]$Destination = 'app', [ValidateSet('LocalFlow','Vowely')][string]$AppName = 'Vowely')
+param([ValidateSet('app','app-update','app-microphones','app-accuracy','app-recovery','app-streaming','app-sentences','app-whisper-endpoints','app-prerelease','app-formatting','app-comma-lists','app-orb','app-automatic','app-final-insertion','app-branding','app-learning','app-draft-learning','app-desktop','app-shortcuts','app-shortcuts-final','app-installer','app-updates-beta')][string]$Destination = 'app', [ValidateSet('LocalFlow','Vowely')][string]$AppName = 'Vowely')
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $ProjectRoot '.venv\Scripts\python.exe'

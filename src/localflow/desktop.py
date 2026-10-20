@@ -290,6 +290,7 @@ class DesktopUI:
         item=button('Pause to edit',self.w.toggle_dictation);row.addWidget(item);inner.addLayout(row);layout.addWidget(box)
         if not hasattr(self,'edit_buttons'):self.edit_buttons=[]
         self.edit_buttons.append(item)
+        return box
 
     def build_vocabulary(self):
         w=self.w;layout=self.page_layouts[2];self.edit_notice(layout)
@@ -324,7 +325,7 @@ class DesktopUI:
         layout.addWidget(label('No latency promise: microphone, accent, decoding quality, CPU load, GPU memory and driver/build all affect results. Your active backend is reported above.','muted'));layout.addStretch()
 
     def build_settings(self):
-        w=self.w;layout=self.page_layouts[4];self.edit_notice(layout)
+        w=self.w;layout=self.page_layouts[4];self.settings_edit_notice=self.edit_notice(layout)
         self.settings_tabs=QTabWidget();self.settings_tabs.setAccessibleName('Settings categories')
         categories=[]
         for name in ('Audio','Dictation','Performance','Privacy'):
@@ -347,11 +348,19 @@ class DesktopUI:
         box,inner=card('Typing safeguards','Password, sensitive, denied and unknown controls are blocked. Focus changes prevent typing. No automatic clipboard writes or Enter-key submission.')
         inner.addWidget(label('Blocked processes · one executable name per line','muted'));inner.addWidget(self.deny_processes)
         inner.addWidget(label('Sensitive field names · one fragment per line','muted'));inner.addWidget(self.deny_names)
-        inner.addWidget(label('Audio and current text are held locally. No transcript history, external inference, telemetry, cloud sync or runtime downloads. Learned spellings are retained locally until removed.','muted'));categories[3].addWidget(box)
+        inner.addWidget(label('Audio and current text are held locally. No transcript history, external inference, telemetry or cloud sync. Model downloads and update installation require explicit action. Learned spellings are retained locally until removed.','muted'));categories[3].addWidget(box)
         for body in categories:body.addStretch()
+        from .update_ui import UpdatePanel
+        w.updates=UpdatePanel(w);self.settings_tabs.addTab(w.updates,'Updates')
         layout.addWidget(self.settings_tabs)
         self.settings_save=button('Save settings',w.apply_settings,True);layout.addWidget(self.settings_save,0,Qt.AlignLeft)
         self.save_status=label('','muted');layout.addWidget(self.save_status);layout.addStretch()
+        self.settings_tabs.currentChanged.connect(self.settings_category_changed)
+
+    def settings_category_changed(self,index):
+        updates=index==4
+        self.settings_edit_notice.setVisible(not updates);self.settings_save.setVisible(not updates);self.save_status.setVisible(not updates)
+        self.footer.setVisible(self.stack.currentIndex() in (2,3) or (self.stack.currentIndex()==4 and not updates))
 
     def build_help(self):
         w=self.w;layout=self.page_layouts[5]
@@ -389,7 +398,7 @@ class DesktopUI:
             step=QWidget();layout=QVBoxLayout(step);layout.setContentsMargins(0,0,0,0);layout.setSpacing(18);self.setup_stack.addWidget(step)
         layout=self.setup_stack.widget(0).layout();logo=brand_mark(140);layout.addWidget(logo,0,Qt.AlignLeft)
         layout.addWidget(label('Local speech to text, built around your flow.','heading'))
-        layout.addWidget(label('Your voice stays on this PC. Whisper recognizes speech; Qwen can clean the words. No account, transcript history or external API.','muted'))
+        layout.addWidget(label('Your voice stays on this PC. Whisper recognizes speech; Qwen can clean the words. No account, transcript history or cloud speech processing.','muted'))
         layout.addWidget(label('We’ll check your microphone and model files, then try a short dictation. Downloads are always a separate, explicit setup step.','muted'));layout.addStretch()
         layout=self.setup_stack.widget(1).layout();box,inner=card('Choose your microphone','Speak at a normal volume during the three-second test. No test recording is saved.')
         self.setup_mic=QComboBox();self.setup_mic.setAccessibleName('Setup microphone');inner.addWidget(self.setup_mic)
@@ -463,7 +472,7 @@ class DesktopUI:
         self.breadcrumb.setText('WORKSPACE / '+self.NAMES[index].upper())
         if index==2:self.sync_words()
         if index==3 and not self.assets:self.w.check_assets()
-        self.footer.setVisible(index in (2,3,4))
+        self.footer.setVisible(index in (2,3) or (index==4 and self.settings_tabs.currentIndex()!=4))
 
     def show_settings(self,index):
         self.navigate(4);self.settings_tabs.setCurrentIndex(index)
@@ -519,6 +528,7 @@ class DesktopUI:
 
     def refresh(self):
         w=self.w;busy=w.state!='idle';active=w.win.registered
+        w.updates.refresh()
         state={'recording':'Listening…','processing':'Finishing…','replaying':'Replaying audio','preparing':'Loading models…',
                'audio_testing':'Checking microphone','stopping_audio':'Stopping microphone','stopping':'Closing models…'}.get(w.state,'Ready' if active else 'Paused')
         self.home_state.setText(state)

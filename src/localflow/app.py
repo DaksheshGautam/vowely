@@ -191,6 +191,11 @@ class Window(QMainWindow):
         self.tray_cancel.triggered.connect(lambda:self.abort() if self.state!='idle' else None)
         self.tray_free = menu.addAction('Free model memory')
         self.tray_free.triggered.connect(lambda:self.unload_models() if self.state=='idle' else None)
+        self.tray_updates=menu.addAction('Check for updates')
+        def show_updates():
+            self.show_page(4);self.ui.settings_tabs.setCurrentIndex(4)
+            if not self.updates.candidate:self.updates.check(True)
+        self.tray_updates.triggered.connect(show_updates)
         menu.addSeparator()
         quit_action = menu.addAction("Quit")
         quit_action.triggered.connect(self.quit)
@@ -204,6 +209,7 @@ class Window(QMainWindow):
         self.prepare_button.setEnabled(self.live.isChecked())
         self.unload_button.setEnabled(False)
         if auto_prepare:
+            self.updates.start()
             QTimer.singleShot(0,self.ui.open_onboarding if self.needs_onboarding else self.start_automatically)
 
     def start_automatically(self):
@@ -815,6 +821,7 @@ class Window(QMainWindow):
     def quit(self):
         if self.quitting: return
         self.quitting = True
+        self.updates.shutdown()
         self.disarm()
         self.ui.timer.stop()
         self.timer.stop()
@@ -824,7 +831,7 @@ class Window(QMainWindow):
         self.finish_quit()
 
     def finish_quit(self):
-        if any(pool.activeThreadCount() for pool in (self.pool,self.lifecycle_pool,self.utility_pool)):
+        if any(pool.activeThreadCount() for pool in (self.pool,self.lifecycle_pool,self.utility_pool,self.updates.pool)):
             QTimer.singleShot(40,self.finish_quit)
             return
         self.win.close()

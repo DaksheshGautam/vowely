@@ -57,3 +57,6 @@ installed-layout.json
 *.part
 *.copying
 *.installing
+update-settings.json
+update-settings.tmp
+updates/

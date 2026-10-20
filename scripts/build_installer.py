@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,7 +20,7 @@ def sha(path):
 def stage(root,bundle,destination):
     if destination.exists():raise RuntimeError('Use a new staging directory; existing stages are preserved.')
     if not (bundle/'Vowely.exe').is_file():raise RuntimeError('Package Vowely before building the installer.')
-    forbidden={'config.json','config.tmp','dictionary.json','dictionary.tmp','ui-state.json','setup-state.json','.env'}
+    forbidden={'config.json','config.tmp','dictionary.json','dictionary.tmp','ui-state.json','setup-state.json','update-settings.json','update-settings.tmp','updates','.env'}
     for path in bundle.rglob('*'):
         if path.name in forbidden or path.suffix.lower() in {'.wav','.gguf','.bin','.log'}:
             raise RuntimeError('Unexpected personal/model file in runtime bundle: '+path.name)
@@ -71,6 +72,7 @@ def main():
     a=p.parse_args();root=a.root.resolve();a.stage=a.stage.resolve();a.output=a.output.resolve()
     stage(root,a.bundle.resolve(),a.stage)
     subprocess.run([str(a.iscc.resolve()),'/DStage='+str(a.stage),'/DAppVersion='+RELEASE_VERSION,
+                    '/DNumericVersion='+'.'.join((re.findall(r'\d+',RELEASE_VERSION)+['0']*4)[:4]),
                     '/DOutput='+str(a.output),str(root/'installer/vowely.iss')],check=True)
     exe=a.output/f'Vowely-{RELEASE_VERSION}-Setup-x64.exe'
     (a.output/'SHA256SUMS.txt').write_text(sha(exe)+'  '+exe.name+'\n',encoding='utf-8')

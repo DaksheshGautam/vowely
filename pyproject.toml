@@ -22,4 +22,4 @@ version = {attr = "localflow.version.__version__"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-localflow = ["assets/*.png", "assets/*.ico", "assets/*.svg"]
+localflow = ["assets/*.png", "assets/*.ico", "assets/*.svg", "assets/*.ps1"]
