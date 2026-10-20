@@ -1,4 +1,4 @@
-"""Windows APIs: no clipboard, focus stealing, keyboard hooks or key remapping."""
+"""Guarded Windows typing and optional verified multiline clipboard insertion."""
 import ctypes as ct
 from ctypes import wintypes as wt
 from pathlib import Path
@@ -46,12 +46,14 @@ class Windows:
         self.user.UnregisterHotKey.argtypes = [wt.HWND, ct.c_int]
         self.user.GetAsyncKeyState.argtypes = [ct.c_int]
         self.user.GetAsyncKeyState.restype = ct.c_short
+        self.user.GetClipboardSequenceNumber.restype=wt.DWORD
         self.registered = False
         self.vk = None
         self.bindings = {}
         self.uia = None
         self.probe = None
         self._draft_watch = None
+        self.formatted_paste = None
 
     def arm(self, key, toggle_key=''):
         if self.registered:
@@ -107,12 +109,37 @@ class Windows:
 
     def close(self):
         self.disarm()
+        if self.formatted_paste:self.formatted_paste.close()
         if self.probe:
             self.probe.close()
 
     def snapshot(self):
         self.prepare_probe()
         return self.probe.snapshot()
+
+    def insert_formatted(self,target,text,config,callback):
+        if self.formatted_paste is None:
+            from .formatted_paste import FormattedPaste
+            self.formatted_paste=FormattedPaste(self)
+        self.formatted_paste.begin(target,text,config,callback)
+
+    def send_paste_keys(self):
+        # One complete Ctrl+V batch; never send Return or retry a partial batch.
+        # INPUT storage includes the largest native union member, as below.
+        class KEY(ct.Structure):
+            _fields_=[('vk',wt.WORD),('scan',wt.WORD),('flags',wt.DWORD),('time',wt.DWORD),('extra',ct.c_size_t)]
+        class U(ct.Union):_fields_=[('key',KEY),('padding',ct.c_ubyte*(32 if ct.sizeof(ct.c_void_p)==8 else 24))]
+        class INPUT(ct.Structure):_fields_=[('type',wt.DWORD),('u',U)]
+        self.user.SendInput.argtypes=[wt.UINT,ct.POINTER(INPUT),ct.c_int];self.user.SendInput.restype=wt.UINT
+        events=[INPUT(1,U(key=KEY(vk,0,flags,0,0))) for vk,flags in ((0x11,0),(0x56,0),(0x56,2),(0x11,2))]
+        sent=self.user.SendInput(4,(INPUT*4)(*events),ct.sizeof(INPUT))
+        if sent!=4:
+            # Release only modifiers we introduced. Never retry the paste.
+            releases=[INPUT(1,U(key=KEY(vk,0,2,0,0))) for vk in (0x56,0x11)]
+            self.user.SendInput(2,(INPUT*2)(*releases),ct.sizeof(INPUT))
+        return sent==4
+
+    def clipboard_sequence(self):return self.user.GetClipboardSequenceNumber()
 
     def correction_update(self,target,config,expected=None):
         self.prepare_probe()

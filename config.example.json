@@ -18,6 +18,7 @@
   "hotkey": "Ctrl+Alt+F9",
   "toggle_hotkey": "",
   "auto_insert": true,
+  "preserve_line_breaks": true,
   "deny_processes": [
     "keepass.exe",
     "keepassxc.exe",

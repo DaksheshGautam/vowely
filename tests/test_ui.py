@@ -33,6 +33,7 @@ class UiTests(unittest.TestCase):
         self.addCleanup(self.mic_patch.stop)
         root = Path(self.tmp.name)
         self.window = Window(root, root / "config.json",auto_prepare=False)
+        self.window.c.preserve_line_breaks=False  # Legacy keyboard path; formatted transport is checked separately.
         self.addCleanup(self.window.quit)
 
     def test_start_is_disarmed_and_cancel_clears_text(self):
@@ -41,6 +42,23 @@ class UiTests(unittest.TestCase):
         self.window.preview.setPlainText("private draft")
         self.window.abort()
         self.assertEqual(self.window.preview.toPlainText(), "")
+
+    def test_formatted_insertion_waits_for_confirmation_before_learning(self):
+        self.window.c.preserve_line_breaks=True
+        target=Target(1,2,'editor.exe',(1,),'edit','Editor',False,True);self.window.target=target
+        result=self.final_result();pending=[]
+        with patch.object(self.window.win,'insert_formatted',side_effect=lambda target,text,config,done:pending.append(done)),patch.object(self.window.win,'modifiers_down',return_value=False),patch.object(self.window.win,'trigger_down',return_value=False):
+            self.window.finished(self.window.generation,result)
+        self.assertEqual(self.window.state,'inserting');self.assertIsNone(self.window.edit_session)
+        pending[0](True,'Inserted with original paragraph breaks.')
+        self.assertEqual(self.window.state,'idle');self.assertIsNotNone(self.window.edit_session)
+
+    def test_cancelled_formatted_callback_cannot_replace_the_current_result(self):
+        self.window.c.preserve_line_breaks=True;self.window.target=object();pending=[]
+        with patch.object(self.window.win,'insert_formatted',side_effect=lambda target,text,config,done:pending.append(done)),patch.object(self.window.win,'modifiers_down',return_value=False),patch.object(self.window.win,'trigger_down',return_value=False):
+            self.window.finished(self.window.generation,self.final_result())
+        self.window.abort();pending[0](True,'Old paste completed.')
+        self.assertEqual(self.window.preview.toPlainText(),'');self.assertIsNone(self.window.edit_session)
 
     def test_failed_hotkey_does_not_save_or_arm(self):
         with patch.object(self.window.win, "arm", side_effect=RuntimeError("Shortcut in use")):

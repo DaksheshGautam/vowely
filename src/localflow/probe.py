@@ -9,6 +9,7 @@ def probe_loop(connection):
     sys.coinit_flags = 0  # MTA: UIA event callbacks must run while the pipe waits.
     from .windows import Windows
     native = Windows()
+    paste=None
     try:
         # Initialize COM before reporting readiness, outside the Qt process.
         import comtypes.client
@@ -34,10 +35,28 @@ def probe_loop(connection):
                 _,data,deny,expected = command
                 data['runtime_id'] = tuple(data['runtime_id'])
                 connection.send(native._correction_update_direct(Target(**data),SimpleNamespace(**deny),expected))
+            elif isinstance(command,tuple) and command[0]=='prepare_paste':
+                from types import SimpleNamespace
+                from .policy import Target
+                from .pastecheck import PasteCheck
+                if paste:paste.close()
+                _,data,deny,expected=command;data['runtime_id']=tuple(data['runtime_id'])
+                paste=PasteCheck(native,Target(**data),SimpleNamespace(**deny),expected)
+                try:ready=paste.prepare()
+                except Exception:ready=False
+                connection.send(ready)
+            elif command=='check_paste':
+                try:result=paste.check() if paste else 'unavailable'
+                except Exception:result='unavailable'
+                connection.send(result)
+            elif command=='clear_paste':
+                if paste:paste.close();paste=None
+                connection.send(True)
             else: break
     except (EOFError, BrokenPipeError, OSError):
         pass
     finally:
+        if paste:paste.close()
         connection.close()
 
 
@@ -92,6 +111,13 @@ class FocusProbe:
 
     def clear_correction_watch(self,finalize=False):
         return self.request(('forget_correction',finalize)) if self.process else []
+
+    def prepare_paste(self,target,config,text):
+        deny={'deny_processes':config.deny_processes,'deny_name_fragments':config.deny_name_fragments}
+        return self.request(('prepare_paste',asdict(target),deny,text))
+
+    def check_paste(self):return self.request('check_paste')
+    def clear_paste(self):return self.request('clear_paste') if self.process else None
 
     def close(self):
         if self.process:

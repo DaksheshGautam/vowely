@@ -233,6 +233,8 @@ class DesktopUI:
         w.cleanup = QCheckBox('Use Qwen for local text cleanup');w.cleanup.setChecked(c.cleanup_enabled)
         w.live = QCheckBox('Live preview and sentence-based cleanup');w.live.setChecked(c.streaming_enabled)
         w.insert = QCheckBox('Automatically type the final result into the focused box');w.insert.setChecked(c.auto_insert)
+        w.preserve_lines=QCheckBox('Preserve paragraph and list line breaks');w.preserve_lines.setChecked(c.preserve_line_breaks)
+        w.preserve_lines.setToolTip('Multiline results use a temporary clipboard paste, excluded from Windows history and sync. The previous clipboard is restored after insertion is verified. Disable for keyboard-only soft breaks.')
         w.models_status = label('Models are not loaded • microphone off','muted')
         w.prepare_button = button('Load / reload models',w.prepare_live,True)
         w.unload_button = button('Free model memory',w.unload_models)
@@ -250,7 +252,7 @@ class DesktopUI:
         self.timeout = QSpinBox();self.timeout.setRange(1,600);self.timeout.setSuffix(' seconds');self.timeout.setValue(c.inference_timeout)
         self.deny_processes = QTextEdit();self.deny_processes.setAcceptRichText(False);self.deny_processes.setPlainText('\n'.join(c.deny_processes));self.deny_processes.setMaximumHeight(140)
         self.deny_names = QTextEdit();self.deny_names.setAcceptRichText(False);self.deny_names.setPlainText('\n'.join(c.deny_name_fragments));self.deny_names.setMaximumHeight(140)
-        w.controls = [w.mode,w.model,w.hotkey,w.toggle_hotkey,w.mic,w.cleanup,w.insert,w.backend,w.language,w.vad,w.all_inputs,
+        w.controls = [w.mode,w.model,w.hotkey,w.toggle_hotkey,w.mic,w.cleanup,w.insert,w.preserve_lines,w.backend,w.language,w.vad,w.all_inputs,
                       w.search_quality,w.vocabulary,w.cleanup_backend,w.live,w.learn,self.threads,self.duration,self.timeout,self.deny_processes,self.deny_names]
 
     def build_home(self):
@@ -354,7 +356,11 @@ class DesktopUI:
         inner.addWidget(button('Recognition & cleanup settings',lambda:self.navigate(3)),0,Qt.AlignLeft);categories[1].addWidget(box)
         box,inner=card('Processing limits','Changes affect future recordings. Existing model paths and custom configuration values are preserved.')
         fields=form();fields.addRow('CPU threads',self.threads);fields.addRow('Maximum recording',self.duration);fields.addRow('Inference timeout',self.timeout);inner.addLayout(fields);categories[2].addWidget(box)
-        box,inner=card('Typing safeguards','Password, sensitive, denied and unknown controls are blocked. Focus changes prevent typing. No automatic clipboard writes or Enter-key submission.')
+        box,inner=card('Typing safeguards','Password, sensitive, denied and unknown controls are blocked. No Enter-key submission. Formatted multiline typing temporarily uses the clipboard, excluded from Windows history and sync, then verifies the target before restoration.')
+        inner.addWidget(w.preserve_lines)
+        inner.addWidget(label('Disable paragraph preservation for keyboard-only typing with soft line separators. If a paste is interrupted, check the typing box before retrying. A previous clipboard can be recovered here only while no newer copy has replaced it.','muted'))
+        self.restore_clipboard=button('Recover previous clipboard',lambda:w.recover_clipboard())
+        inner.addWidget(self.restore_clipboard)
         inner.addWidget(label('Blocked processes · one executable name per line','muted'));inner.addWidget(self.deny_processes)
         inner.addWidget(label('Sensitive field names · one fragment per line','muted'));inner.addWidget(self.deny_names)
         inner.addWidget(label('Audio and current text are held locally. No transcript history, external inference, telemetry or cloud sync. Model downloads and update installation require explicit action. Learned spellings are retained locally until removed.','muted'));categories[3].addWidget(box)
@@ -541,9 +547,11 @@ class DesktopUI:
 
     def refresh(self):
         w=self.w;busy=w.state!='idle';active=w.win.registered
+        paste=w.win.formatted_paste
+        self.restore_clipboard.setEnabled(not busy and paste is not None and paste.recovery_available)
         w.updates.refresh()
         state={'recording':'Listening…','processing':'Finishing…','replaying':'Replaying audio','preparing':'Loading models…',
-               'audio_testing':'Checking microphone','stopping_audio':'Stopping microphone','stopping':'Closing models…'}.get(w.state,'Ready' if active else 'Paused')
+               'audio_testing':'Checking microphone','stopping_audio':'Stopping microphone','inserting':'Inserting text…','stopping':'Closing models…'}.get(w.state,'Ready' if active else 'Paused')
         self.home_state.setText(state)
         self.home_busy.setVisible(busy and w.state!='recording')
         self.shortcut_label.setText('Hold · '+w.c.hotkey+ ('\nStart / stop · '+w.c.toggle_hotkey if w.c.toggle_hotkey else ''))

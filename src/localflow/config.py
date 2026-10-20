@@ -26,6 +26,7 @@ class Config:
     hotkey: str = "Ctrl+Alt+F9"
     toggle_hotkey: str = ""  # Optional press once to start, press again to stop.
     auto_insert: bool = True
+    preserve_line_breaks: bool = True
     deny_processes: list[str] = field(default_factory=lambda: [
         "keepass.exe", "keepassxc.exe", "1password.exe", "bitwarden.exe",
         "credentialuibroker.exe", "consent.exe", "windowsterminal.exe",
@@ -46,7 +47,7 @@ class Config:
             raise ValueError('Toggle shortcut must be text or empty to disable it.')
         if self.toggle_hotkey and parse_hotkey(self.toggle_hotkey) == hold:
             raise ValueError('Hold and toggle shortcuts must be different.')
-        for value in (self.gpu, self.cleanup_enabled, self.auto_insert,self.streaming_enabled,self.cleanup_gpu,self.learn_corrections):
+        for value in (self.gpu, self.cleanup_enabled, self.auto_insert,self.streaming_enabled,self.cleanup_gpu,self.learn_corrections,self.preserve_line_breaks):
             if type(value) is not bool:
                 raise ValueError("Model, typing, streaming and learning switches must be JSON booleans")
         if self.asr_model not in ("base", "small"):

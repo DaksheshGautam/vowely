@@ -31,6 +31,16 @@ def run(root, report_path):
         report['update_notice_loaded'] = window.updates.notice is window.ui.update_notice and window.ui.update_notice.isHidden()
         report['update_helper_bundled'] = (Path(__file__).parent/'assets/update_helper.ps1').is_file()
         report['local_theme_assets'] = all((Path(__file__).parent/'assets'/name).is_file() for name in ('check.svg','chevron.svg','vowely.ico','vowely.png'))
+        report['formatted_controls_loaded']=window.preserve_lines.isChecked()==window.c.preserve_line_breaks
+        from .clipboard_transport import ClipboardWorker
+        clipboard=ClipboardWorker()
+        def clipboard_health():
+            result=clipboard.request(('health',)) # Creates a hidden helper; never opens or changes the clipboard.
+            if result['status'] in ('starting','working'):
+                QTimer.singleShot(50,clipboard_health);return
+            report['clipboard_helper_ready']=result['status']=='ok'
+            clipboard.close();report['clipboard_helper_stopped']=clipboard.process is None
+            window.quit()
         def finish():
             try:
                 report['probe_process_alive'] = bool(window.win.probe and window.win.probe.process.is_alive())
@@ -39,10 +49,10 @@ def run(root, report_path):
                 report['bounded_probe_returned'] = True
             except Exception as exc:
                 report['probe_error'] = type(exc).__name__
-            window.quit()
+            clipboard_health()
         QTimer.singleShot(1800, finish)
         app.exec()
-        report['success'] = all(report.get(k) is True for k in ('starts_disarmed','microphone_closed','probe_process_alive','bounded_probe_returned','icon_loaded','shared_current_result','local_theme_assets','shortcut_controls_loaded','update_controls_loaded','update_notice_loaded','update_helper_bundled')) and report['setup_steps']==4 and len(report['desktop_pages'])==6
+        report['success'] = all(report.get(k) is True for k in ('starts_disarmed','microphone_closed','probe_process_alive','bounded_probe_returned','icon_loaded','shared_current_result','local_theme_assets','shortcut_controls_loaded','update_controls_loaded','update_notice_loaded','update_helper_bundled','formatted_controls_loaded','clipboard_helper_ready','clipboard_helper_stopped')) and report['setup_steps']==4 and len(report['desktop_pages'])==6
     except Exception:
         report['success'] = False
         report['error'] = traceback.format_exc()

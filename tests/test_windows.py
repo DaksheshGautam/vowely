@@ -62,6 +62,21 @@ class WindowsTests(unittest.TestCase):
         self.assertEqual([unit for unit,flags in events if flags==4],[65,0x2028,66,0x2028,67])
         self.assertTrue(all(flags in (4,6) for _,flags in events))
 
+    def test_formatted_paste_uses_ctrl_v_without_return_and_releases_keys_on_partial(self):
+        class PasteSend:
+            def __init__(self,partial=False):self.calls=[];self.partial=partial
+            def __call__(self,count,events,size):
+                self.calls.append([(event.u.key.vk,event.u.key.flags) for event in events])
+                self.asserted_size=size
+                return count-1 if self.partial else count
+        send=PasteSend();self.w.user.SendInput=send
+        self.assertTrue(self.w.send_paste_keys())
+        self.assertEqual(send.calls,[[(0x11,0),(0x56,0),(0x56,2),(0x11,2)]])
+        self.assertNotIn(0x0D,[key for key,_ in send.calls[0]])
+        send=PasteSend(True);self.w.user.SendInput=send
+        self.assertFalse(self.w.send_paste_keys())
+        self.assertEqual(send.calls[1],[(0x56,2),(0x11,2)])
+
 
 if __name__ == "__main__":
     unittest.main()

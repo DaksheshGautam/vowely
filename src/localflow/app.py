@@ -259,6 +259,7 @@ class Window(QMainWindow):
         c.hotkey, c.microphone = self.hotkey.text().strip(), self.mic.currentData()
         c.toggle_hotkey = self.toggle_hotkey.text().strip()
         c.cleanup_enabled, c.auto_insert = self.cleanup.isChecked(), self.insert.isChecked()
+        c.preserve_line_breaks=self.preserve_lines.isChecked()
         c.learn_corrections = self.learn.isChecked()
         c.streaming_enabled = self.live.isChecked()
         c.cleanup_gpu = self.cleanup_backend.currentIndex() == 1
@@ -675,20 +676,29 @@ class Window(QMainWindow):
         attempted = self.target is not None and result.get('insertion_ready',not result['review'])
         inserted = False
         if attempted:
+            if self.c.preserve_line_breaks and any(char in result['text'] for char in '\r\n\u2028\u2029'):
+                self.state='inserting';self.working(True)
+                self.status.setText('Inserting formatted text • stay in the original box')
+                self.win.insert_formatted(self.target,result['text'],self.c,
+                    lambda ok,message:self.insertion_finished(generation,result,ok,message,True))
+                return
             inserted, message = self.win.insert(self.target, result["text"], self.c)
-            if inserted and self.c.learn_corrections and self.dictionary.available and 0<len(result['text'])<=MAX_SPAN:
-                self.edit_target = self.target
-                self.edit_pending = result['text']
-                self.edit_session = EditSession(result['text'],time.monotonic())
-                self.edit_next = time.monotonic()+.1
-            if inserted and result.get('cleanup_fallback'):
-                message += ' Cleanup partly unavailable or rejected; original words used for those portions.'
         elif self.target is None:
             message = 'Test recording • preview only; no typing target was captured.'
         elif result["review"]:
             message = 'Final result was incomplete; nothing typed. '+result['warning']
         else:
             message = 'Preview ready • copy the result when ready.'
+        self.insertion_finished(generation,result,inserted,message,attempted)
+
+    def insertion_finished(self,generation,result,inserted,message,attempted):
+        if generation!=self.generation or self.cancel.is_set():return
+        self.state='idle';self.working(False)
+        if inserted and self.c.learn_corrections and self.dictionary.available and 0<len(result['text'])<=MAX_SPAN:
+            self.edit_target=self.target;self.edit_pending=result['text']
+            self.edit_session=EditSession(result['text'],time.monotonic());self.edit_next=time.monotonic()+.1
+        if inserted and result.get('cleanup_fallback'):
+            message+=' Cleanup partly unavailable or rejected; original words used for those portions.'
         label = 'Typed • original fallback' if inserted and result.get('cleanup_fallback') else 'Typed'
         if not inserted:
             if not result['text']: label = 'Nothing to type'
@@ -724,6 +734,7 @@ class Window(QMainWindow):
             self.overlay.show_phase('notice','Could not finish',2500)
 
     def abort(self):
+        if self.win.formatted_paste:self.win.formatted_paste.cancel()
         if self.state in ('audio_testing','stopping_audio'):
             self.mic_test_cancel.set()
             self.state = 'stopping_audio'
@@ -756,6 +767,10 @@ class Window(QMainWindow):
         config = copy.deepcopy(self.c)
         config.personal_vocabulary = self.dictionary.vocabulary(config.personal_vocabulary)
         return config
+
+    def recover_clipboard(self):
+        if self.win.formatted_paste:
+            self.win.formatted_paste.recover(lambda ok,message:self.status.setText(message))
 
     def stop_learning(self,finalize=False):
         if self.edit_session or self.edit_pending:

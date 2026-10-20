@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-beta.7 — prerelease
+
+- Preserve ordinary newline/blank-paragraph characters when automatically inserting multiline results, instead of replacing them with Unicode soft separators that some editors do not parse as list/paragraph boundaries. Dash list markers are unchanged.
+- Multiline insertion uses a temporary protected clipboard paste and verifies the exact resulting composer before restoring supported previous clipboard formats. Windows history/sync exclusion flags are set; no Return key is sent. Single-line results keep Unicode keyboard typing.
+- Retain original field identity/sensitive-field checks, reject unsupported/oversized/busy clipboards before changing them, and never retry partial input. Clipboard work runs in a bounded helper process; UIA verification remains scoped to the original eligible composer.
+- Settings → Privacy offers keyboard-only soft-break typing and manual clipboard recovery after unconfirmed insertion. An unconfirmed queued paste never receives older private clipboard contents; recovery expires after ten minutes and preserves newer copies.
+- Add synthetic clipboard safety tests, asynchronous completion/cancellation tests, and an opt-in disposable-editor native check for exact newlines, rich clipboard restoration, emoji and zero Enter-key events. Installed settings/model paths/dictionary values remain preserved.
+
 ## 1.0.0-beta.6 — prerelease
 
 - Fix task lists when recognition puts each task in a separate sentence instead of a comma-separated clause. Consecutive action sentences following a task introduction stay together and a final “and improve …” action can become its own item.

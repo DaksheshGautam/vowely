@@ -14,7 +14,7 @@ The desktop is assembled in desktop.py and delegates every engine action to Wind
 | streaming.py | Energy-based phrase boundaries, 200 ms pre-roll/padding, no silence endpoint in live mode, coalesced 2.5 s previews, sentence buffering, ordered final queues and concurrent ASR/cleanup threads |
 | resident.py | Loopback-only authenticated native worker lifecycle, in-memory WAV transport, bounded JSON, request cancellation and Windows Job ownership |
 | engines.py | Existing CLI recognition/cleanup, conservative output validation and whole-recording CPU fallback |
-| windows.py / probe.py / policy.py | Explicit shortcut reservation, bounded UIA inspection, deny/allow rules, target identity checks and Unicode insertion without automatic clipboard use |
+| windows.py / probe.py / policy.py | Explicit shortcut reservation, bounded UIA inspection, deny/allow rules, target identity checks, Unicode single-line typing and verified multiline paste |
 | config.py | Validated settings and atomic local save |
 | learning.py / draftwatch.py | Token alignment, bounded draft comparison on completion, field-scoped UIA events, local dictionary and per-request vocabulary |
 | learning_popup.py | Click-through, nonactivating notification listing newly added words |

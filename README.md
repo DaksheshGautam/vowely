@@ -1,6 +1,6 @@
 # Vowely
 
-**v1.0.0-beta.6 — Windows installer prerelease**
+**v1.0.0-beta.7 — Windows installer prerelease**
 
 Download the Windows **Setup-x64.exe** from [Releases](https://github.com/DaksheshGautam/vowely/releases). It installs Vowely, Start-menu shortcuts and an uninstaller without a separate Python installation. On completion, the setup screen downloads missing models and engines after you choose **Start setup**. Existing verified files can be reused. The installer includes the current desktop, hold/toggle shortcuts, correction learning and final-result typing.
 
@@ -10,7 +10,7 @@ Audio and transcripts stay on your computer. No external inference APIs, telemet
 
 ## Download and start
 
-1. Download **Vowely-1.0.0-beta.6-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.6) and run it.
+1. Download **Vowely-1.0.0-beta.7-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.7) and run it.
 2. Finish installation, then choose **Start setup** in the model setup screen. It downloads only missing verified models/engines; choose an existing Vowely folder to reuse files. NVIDIA support is optional. No separate Python or developer tools are needed.
 3. Choose **Open Vowely**, complete microphone/shortcut setup, then dictate with your hold or toggle shortcut. Start-menu shortcuts reopen the app or model setup later.
 
@@ -87,7 +87,7 @@ Formatting requests keep sentence context together, and Stop includes any unfini
 
 ## Insertion and privacy
 
-New installations activate the shortcut and automatic final typing on launch, with the microphone closed until you hold the shortcut. There is no field allowlist. Insertion requires a known editable focused control with a runtime identity. Password, sensitive, unknown and changed targets refuse insertion. Validated cleanup or an exact local fallback to source words can be inserted after recognition completes. Live previews are never inserted. Completion does not steal focus, and automatic insertion does not use the clipboard.
+New installations activate the shortcut and automatic final typing on launch, with the microphone closed until you hold the shortcut. There is no field allowlist. Insertion requires a known editable focused control with a runtime identity. Password, sensitive, unknown and changed targets refuse insertion. Validated cleanup or an exact local fallback to source words can be inserted after recognition completes. Live previews are never inserted. Completion does not steal focus. Single-line results use Unicode keyboard typing. Multiline results preserve ordinary newlines through a temporary protected clipboard paste, verified in the original composer before restoring supported previous clipboard data. No Return key is sent. In Settings → Privacy, disable **Preserve paragraph and list line breaks** for the old keyboard-only soft separators. Unsupported/oversized clipboards or text boxes that cannot confirm insertion leave the result in preview for manual copy. See PRIVACY.md for clipboard limits and recovery.
 
 Live workers listen only on protected `127.0.0.1` endpoints and are owned by the app. They stop on cancellation/unload/exit. Conventional CLI processing and CPU fallback use temporary local files. See [PRIVACY.md](PRIVACY.md) for retention and insertion limits.
 
