@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.4 — prerelease
+
+- Stable completed sentences still go to Qwen during recording. After Stop, final formatting uses passage context, split into bounded blocks for the local model rather than losing long recordings to the old whole-text cleanup limit.
+- Source-grounded natural lists: common enumeration introductions, consecutive first/second/third descriptions, repeated empty ordinal starts, multiword technical boundary hints and manual vocabulary. Unknown boundaries may request a small local Qwen partition, accepted only when it covers source items in order. Ordinary prose, code, quoted text and numeric literals retain conservative guards.
+- List/item coverage checks reject a cleanup summary that drops detected tools or the surrounding explanation. The fallback preserves source wording and verified layout; it never guesses unclear ASR phrases.
+- Paragraph commands include new/next/start a/begin a paragraph, paragraph break and blank line; new/next line inserts one break. Commands have a local fallback, while quoted commands remain literal. Help explains sentence flow, final formatting and review limits.
+
 ## 1.0.0-beta.3 — prerelease
 
 - Five-minute microphone dictation limit (300 seconds), supported by capture, settings, live previews and resident Whisper requests. The legacy 60-second default migrates once; other custom limits and explicit future shorter limits are retained.
@@ -18,7 +25,7 @@
 - Explicit cancellable installer download with SHA-256/GitHub-digest verification, progress, bounded requests, resume and retry. No user dictation data is transmitted.
 - Verified external install/restart handoff preserves program location and separate model/profile data. It waits for shutdown, rechecks the installer, reports failures/reboot requirements and protects unsaved results.
 
-Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.3 is the current installable prerelease.
+Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.4 is the current installable prerelease.
 
 ## 0.1.0-alpha.12 — installer prerelease
 

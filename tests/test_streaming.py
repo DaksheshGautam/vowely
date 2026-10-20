@@ -164,8 +164,9 @@ class StreamingTests(unittest.TestCase):
         self.assertFalse(session._clean)
 
     def test_any_rejected_final_unit_blocks_automatic_typing(self):
+        raw='First '+('word '*497)+'. Second sentence.'
         class Mixed(Runtime):
-            def transcribe(self,*args,**kwargs): return 'First sentence. Second sentence.'
+            def transcribe(self,*args,**kwargs): return raw
             def clean(self,raw,c,cancel):
                 return raw,('Cleanup requires review.' if raw.startswith('First') else 'Cleanup unavailable; original preserved.')
         result = self.execute(StreamingSession(Mixed(),Config(cleanup_enabled=True),Path('.')),VOICE)
@@ -174,15 +175,16 @@ class StreamingTests(unittest.TestCase):
 
     def test_safe_source_fallback_does_not_block_other_valid_qwen_units(self):
         from localflow.formatting import preserved_cleanup
+        raw='First '+('word '*497)+'. Meet at 4.'
         class Mixed(Runtime):
-            def transcribe(self,*args,**kwargs): return 'First sentence. Meet at 4.'
+            def transcribe(self,*args,**kwargs): return raw
             def clean(self,raw,c,cancel):
                 if raw.startswith('First'): return raw,'Cleanup requires review.'
                 return preserved_cleanup(raw,'Cleanup unavailable or rejected; original wording preserved.')
         result = self.execute(StreamingSession(Mixed(),Config(cleanup_enabled=True),Path('.')),VOICE)
         self.assertTrue(result['insertion_ready'])
         self.assertTrue(result['cleanup_fallback'])
-        self.assertEqual(result['text'],'First sentence. Meet at 4.')
+        self.assertEqual(result['text'],raw)
 
     def test_source_revision_discards_obsolete_cleanup_warnings(self):
         session = StreamingSession(Runtime(),Config(cleanup_enabled=True),Path('.'))

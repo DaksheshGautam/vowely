@@ -20,6 +20,7 @@ import wave
 from .engines import Cancelled, EngineError, cleanup_prompt, require_file, validate_cleanup
 from .formatting import preserved_cleanup
 from .config import MAX_RECORDING_SECONDS
+from .natural_layout import Passage,prepare_layout,layout_retained
 
 
 class ProcessOwner:
@@ -304,13 +305,21 @@ class ResidentModels:
         if len(raw.encode('utf-8'))>2500:
             return preserved_cleanup(raw,'Cleanup skipped for a long phrase; original wording preserved.')
         try:
-            payload = {'prompt':cleanup_prompt(raw,config.mode,config.personal_vocabulary),
-                       'n_predict':1024,'temperature':0,'seed':1,'cache_prompt':False,
-                       'stream':False,'stop':['<|im_end|>']}
-            data = self.qwen.request('POST','/completion',json.dumps(payload).encode())
+            def generate(prompt,limit=1024):
+                if cancel.is_set() or self.stop.is_set():raise Cancelled('Cancelled')
+                payload={'prompt':prompt,'n_predict':limit,'temperature':0,'seed':1,'cache_prompt':False,
+                         'stream':False,'stop':['<|im_end|>']}
+                data=self.qwen.request('POST','/completion',json.dumps(payload).encode())
+                text=data.get('content')
+                if not isinstance(text,str):raise EngineError('Unexpected local Qwen response.')
+                return text
+            source,anchors=prepare_layout(raw,(lambda prompt:generate(prompt,256)) if isinstance(raw,Passage) else None,config.personal_vocabulary)
+            text=generate(cleanup_prompt(source,config.mode,config.personal_vocabulary))
             if cancel.is_set(): raise Cancelled('Cancelled')
-            text = data.get('content')
-            if not isinstance(text,str): raise EngineError('Unexpected local Qwen response.')
+            if anchors and not layout_retained(source,text,anchors):
+                fallback,warning=preserved_cleanup(raw,'Cleanup rewrite rejected; source formatting preserved.')
+                if source==fallback:return validate_cleanup(raw,fallback,config.personal_vocabulary),warning
+                text=source
             return validate_cleanup(raw,text,config.personal_vocabulary),'Cleanup requires review.'
         except Cancelled:
             raise

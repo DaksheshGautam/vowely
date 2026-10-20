@@ -13,7 +13,7 @@ import time
 
 from .engines import Cancelled, EngineError, cleanup_insertion_ready, pipeline
 from .formatting import (comma_list_items, has_layout_cues, join_blocks,
-                         preserved_cleanup, PreservedCleanupNotice)
+                         preserved_cleanup, PreservedCleanupNotice,final_cleanup_blocks)
 
 
 def rms(pcm):
@@ -242,7 +242,9 @@ class StreamingSession:
         # A list can span many sentences. Give Qwen its stable prefix as one
         # block so item order, numbering and paragraph commands retain context.
         # Growing prefixes replace stale work; unfinished text is still held.
-        if self.c.cleanup_enabled and self.c.mode!='Verbatim' and (has_layout_cues(raw) or comma_list_items(raw)):
+        if self.c.cleanup_enabled and self.c.mode!='Verbatim' and final:
+            units=final_cleanup_blocks(raw);stable=len(units)
+        elif self.c.cleanup_enabled and self.c.mode!='Verbatim' and (has_layout_cues(raw) or comma_list_items(raw)):
             ready = raw if final else ' '.join(complete[:stable])
             waiting = '' if final else ' '.join(complete[stable:]+([tail] if tail else []))
             units = [part for part in (ready,waiting) if part]

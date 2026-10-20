@@ -18,7 +18,7 @@ page for GitHub checks and explicit installer download/restart.
 | Settings / Privacy | Automatic typing policy explanation, editable process/name denylists, local retention and clipboard contract |
 | Settings / Updates | Optional daily idle checks, stable/prerelease choice, release notes, cancellable verified downloads and explicit install/restart; all network work uses a separate worker pool |
 | Bottom-left update card | Available version, download/progress/retry/details, then confirmed install/restart; compact icon retained in narrow windows; navigation scrolls to keep this action visible |
-| Help & diagnostics | Explicit microphone test, manual preview recording, local WAV replay, async file/dependency checks, setup steps, version and offline troubleshooting |
+| Help & diagnostics | Explicit microphone test, manual preview recording, local WAV replay, async file/dependency checks, setup steps, lists/paragraph-command examples, live-versus-final cleanup explanation, version and offline troubleshooting |
 | Onboarding | Welcome, real microphone level test, async model presence checks, shortcut validation, real sample dictation through the existing pipeline; explicit skip/revisit |
 | System tray | Open Home/editor/vocabulary/models/settings/help, pause/resume, cancel, free memory, check updates, notification opens update details, quit |
 | Floating windows | Existing no-focus volume orb/loading ring and words-added popup, unchanged |

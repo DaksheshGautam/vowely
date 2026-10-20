@@ -12,6 +12,7 @@ import math
 from .formatting import (FORMAT_INSTRUCTIONS, apply_layout_cues, comma_list_items,
                          comma_list_text, content_length, ensure_comma_list, numbers_preserved,
                          preserved_cleanup, PreservedCleanupNotice)
+from .natural_layout import prepare_layout,layout_retained
 
 
 class LocalOutput(str):
@@ -212,12 +213,19 @@ class Cleaner:
             require_file(model)
             with tempfile.TemporaryDirectory(prefix="localflow-clean-") as tmp:
                 prompt = Path(tmp) / "prompt.txt"
-                prompt.write_text(cleanup_prompt(raw, c.mode, c.personal_vocabulary), encoding="utf-8")
-                output = run_local([exe, "-m", model, "-f", prompt, "-no-cnv",
+                def generate(text,limit=1024):
+                    prompt.write_text(text,encoding='utf-8')
+                    return run_local([exe, "-m", model, "-f", prompt, "-no-cnv",
                                     "--no-display-prompt", "--simple-io",
                                     "-ngl", "0", "-t", str(c.threads), "-c", "4096",
-                                    "-n", "1024", "--temp", "0", "--seed", "1"],
+                                    "-n", str(limit), "--temp", "0", "--seed", "1"],
                                    c.inference_timeout, cancel)
+                source,anchors=prepare_layout(raw,lambda text:generate(text,256),c.personal_vocabulary)
+                output=generate(cleanup_prompt(source,c.mode,c.personal_vocabulary))
+                if anchors and not layout_retained(source,output,anchors):
+                    fallback,warning=preserved_cleanup(raw,'Cleanup rewrite rejected; source formatting preserved.')
+                    if source==fallback:return validate_cleanup(raw,fallback,c.personal_vocabulary),warning
+                    output=source
                 cleaned = validate_cleanup(raw, output, c.personal_vocabulary)
                 if c.mode == "Developer":
                     # The UI applies focused-field and final-insertion policy.

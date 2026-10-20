@@ -375,6 +375,8 @@ class DesktopUI:
         w=self.w;layout=self.page_layouts[5]
         box,inner=card('A quick way to get started','Focus an editable text box. Hold your hold shortcut to speak and release to finish, or use the optional toggle shortcut: press once to start, again to stop. Stay in the box while the ring finishes. Vowely types the final result once. Configure both in Settings → Dictation.')
         inner.addWidget(button('Revisit setup',self.open_onboarding,True),0,Qt.AlignLeft);layout.addWidget(box)
+        box,inner=card('Lists and paragraph breaks','With Qwen cleanup enabled, clear enumerations can become lists. Try “the first one is … the second one is …”. Say “new paragraph”, “next paragraph”, “paragraph break” or “blank line” for a blank line; “new line” or “next line” for one line break. Verbatim keeps recognized words.')
+        inner.addWidget(label('Stable sentences still go to Qwen while you speak. After Stop, a final formatting check connects the passage; longer recordings use bounded context blocks. This can add processing time. Automatic topic breaks and unclear item boundaries need review.','muted'));layout.addWidget(box)
         box,inner=card('Preview-only tests','These actions never type into another app. WAV input must be uncompressed 16 kHz, mono, PCM16 and under 120 seconds.')
         inner.addWidget(w.record_button);inner.addWidget(w.file_button);inner.addWidget(button('Open current result',lambda:self.navigate(1)))
         self.help_sample_status=label('Results stay in the current-session editor.','muted');inner.addWidget(self.help_sample_status);layout.addWidget(box)

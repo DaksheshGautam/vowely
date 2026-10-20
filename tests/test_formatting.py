@@ -7,12 +7,43 @@ import threading
 
 from localflow.config import Config
 from localflow.engines import Cleaner, EngineError, cleanup_prompt, validate_cleanup
-from localflow.formatting import comma_list_items, has_layout_cues, join_blocks
+from localflow.formatting import comma_list_items, has_layout_cues, join_blocks,final_cleanup_blocks
 from localflow.streaming import StreamingSession
 from localflow.resident import ResidentModels
 
 
 class FormattingTests(unittest.TestCase):
+    def test_final_passage_context_handles_natural_enumerations_without_commas(self):
+        raw='Our app uses tools such as Python SQL and Power BI. It gives two outputs. The first one is queries. The second one is a report.'
+        session=StreamingSession(None,Config(cleanup_enabled=True),Path('.'))
+        with session._condition:
+            session._accept_snapshot(raw);session._accept_snapshot(raw)
+            self.assertTrue(session._cleanup)  # Stable sentences still get live cleanup.
+            session._accept_snapshot(raw,final=True)
+            self.assertEqual([job[2] for job in session._cleanup],[raw])
+        expected='Our app uses tools such as:\n- Python\n- SQL\n- Power BI\n\nIt gives two outputs:\n1. Queries.\n2. A report.'
+        self.assertEqual(validate_cleanup(raw,expected),expected)
+
+    def test_long_final_context_is_bounded_and_keeps_all_words_including_unicode(self):
+        raw=('A complete sentence with Unicode café and हिंदी. '*110).strip()
+        blocks=final_cleanup_blocks(raw)
+        self.assertGreater(len(blocks),1)
+        self.assertTrue(all(len(block.encode('utf-8'))<=2500 for block in blocks))
+        self.assertEqual(' '.join(blocks).split(),raw.split())
+        oversized='x'*3000
+        self.assertEqual(final_cleanup_blocks(oversized),[oversized])
+
+    def test_paragraph_and_line_break_aliases_work_without_model_cooperation(self):
+        for phrase in ('new paragraph','next paragraph','start a paragraph','begin a paragraph','paragraph break','blank line'):
+            raw='Hello there. '+phrase+'. The app works.'
+            with self.subTest(phrase=phrase):self.assertEqual(validate_cleanup(raw,raw),'Hello there.\n\nThe app works.')
+        for phrase in ('new line','next line'):
+            raw='Hello there. '+phrase+'. The app works.'
+            self.assertEqual(validate_cleanup(raw,raw),'Hello there.\nThe app works.')
+        for quoted in ('"next paragraph"',"'blank line'",'`paragraph break`','```new paragraph```','“start a paragraph”'):
+            raw='The string '+quoted+' is a label.'
+            self.assertEqual(validate_cleanup(raw,raw),raw)
+
     def test_four_commas_trigger_bullets_but_three_do_not(self):
         raw = 'Milk, bread, eggs, rice, apples.'
         expected = '- Milk\n- bread\n- eggs\n- rice\n- apples.'
