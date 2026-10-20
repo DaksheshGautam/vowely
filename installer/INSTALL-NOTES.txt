@@ -4,7 +4,7 @@ This installs Vowely for your Windows account, with Start menu shortcuts and an 
 
 After installation, choose Start setup to download missing Whisper Base/Small, Qwen3-1.7B, Silero VAD, and CPU engines. NVIDIA engine/runtime downloads are optional. Setup checks SHA-256 hashes and can reuse matching files from an existing Vowely folder. An internet connection and up to 10 GB free disk space are needed for a fresh setup. Keep the current NVIDIA driver if you use GPU acceleration.
 
-Downloads happen only in the explicit setup screen. Once complete, dictation runs offline. No audio upload, telemetry, cloud sync, saved transcript history, or Windows startup task is enabled by installation. Optional daily update checks contact the public Vowely GitHub repository and can be disabled. Downloads and update installation require your action.
+Model/engine downloads happen only in the explicit setup screen. Once complete, dictation runs offline. No audio upload, telemetry, cloud sync, saved transcript history, or Windows startup task is enabled by installation. Optional daily update checks contact the public Vowely GitHub repository and can be disabled. Installer downloads and update installation require your action.
 
 Program: Windows local app data / Programs / Vowely
 Models, settings, learned words and reusable downloads: Windows local app data / Vowely
@@ -13,4 +13,4 @@ Updates preserve your settings and vocabulary. Uninstall removes the program and
 
 The app and installer are unsigned prerelease software. Model/runtime license terms and pinned download origins are described in THIRD_PARTY.md. Setup does not install a GPU driver or change system PATH.
 
-Future updates are available under Settings / Updates. The app verifies the release installer, waits for dictation to finish, closes owned workers, installs to the same folder and reopens. Settings, dictionary and models are retained. Previous alpha versions require this one-time installer upgrade to gain in-app updating.
+Future updates appear in the bottom-left update card and Settings / Updates, with a Windows notification when permitted by Windows settings. No API key is needed. The app verifies the release installer and always asks before installing and restarting. Installation is disabled while dictation is busy. After confirmation it closes owned workers, installs to the same folder and reopens. Settings, dictionary and models are retained. Previous alpha versions require this one-time installer upgrade to gain in-app updating.

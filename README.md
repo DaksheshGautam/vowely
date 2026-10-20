@@ -1,6 +1,6 @@
 # Vowely
 
-**v1.0.0-beta.1 — Windows installer prerelease**
+**v1.0.0-beta.2 — Windows installer prerelease**
 
 Download the Windows **Setup-x64.exe** from [Releases](https://github.com/DaksheshGautam/vowely/releases). It installs Vowely, Start-menu shortcuts and an uninstaller without a separate Python installation. On completion, the setup screen downloads missing models and engines after you choose **Start setup**. Existing verified files can be reused. The installer includes the current desktop, hold/toggle shortcuts, correction learning and final-result typing.
 
@@ -10,7 +10,7 @@ Audio and transcripts stay on your computer. No external inference APIs, telemet
 
 ## Download and start
 
-1. Download **Vowely-1.0.0-beta.1-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.1) and run it.
+1. Download **Vowely-1.0.0-beta.2-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.2) and run it.
 2. Finish installation, then choose **Start setup** in the model setup screen. It downloads only missing verified models/engines; choose an existing Vowely folder to reuse files. NVIDIA support is optional. No separate Python or developer tools are needed.
 3. Choose **Open Vowely**, complete microphone/shortcut setup, then dictate with your hold or toggle shortcut. Start-menu shortcuts reopen the app or model setup later.
 
@@ -98,12 +98,16 @@ Program files live under Windows local application data / Programs / Vowely; mod
 
 ## Release history
 
-All twelve alpha versions are listed under [Releases](https://github.com/DaksheshGautam/vowely/releases). Alpha.2–alpha.11 are historical source snapshots published retrospectively from their original commits, with version-specific notes and automatic source archives. They do not include Windows installers. **[Beta.1 is the current installer download](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.1)**; use it for the latest desktop app and guided model setup. GitHub’s stable Latest badge is separate from prerelease version numbering.
+All twelve alpha versions are listed under [Releases](https://github.com/DaksheshGautam/vowely/releases). Alpha.2–alpha.11 are historical source snapshots published retrospectively from their original commits, with version-specific notes and automatic source archives. They do not include Windows installers. **[Beta.2 is the current installer download](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.2)**; use it for the latest desktop app and guided model setup. GitHub’s stable Latest badge is separate from prerelease version numbering.
 
 ## In-app updates (1.0.0-beta.1)
 
 Install this beta once with its Setup-x64.exe; previous alphas do not contain the updater. Afterwards open **Settings → Updates**, or **Check for updates** in the tray. Vowely checks public GitHub release metadata automatically at most once per day when idle; this can be disabled. Manual checks are always available. Beta builds include prereleases by default, with a checkbox to switch channels. Updates are selected by version precedence, ignoring GitHub display/publication order, drafts, downgrades, and historical source-only releases.
 
-Review the notes, choose Download update, then Install update and restart. The installer must match its release SHA256SUMS.txt and GitHub asset digest when supplied. Installation is enabled only in the installed app, while dictation is idle; an unsaved current result requires confirmation before restart. An external hidden helper waits for the app and owned workers to exit, rechecks the hash, installs into the same program folder and reopens Vowely. Model/settings/dictionary data is retained. Failure is recorded locally and the existing app is reopened where possible; a required Windows reboot is reported rather than forced. Portable/source copies can check/download and migrate using the normal installer.
+From beta.2, an available update appears at the bottom left on every page and requests a Windows notification once per version, including while closed to the tray. Notification display depends on Windows settings. Clicking it opens update details. The card offers Download update, then Install and restart after verification, with a compact icon in narrow windows. Installation always asks for confirmation, even with an empty result, and is disabled during dictation. No download triggers installation automatically.
+
+Review the notes, choose Download update, then Install update and restart. The installer must match its release SHA256SUMS.txt and GitHub asset digest when supplied. Installation is enabled only in the installed app, while dictation is idle; confirmation also warns about an unsaved current result. An external hidden helper waits for the app and owned workers to exit, rechecks the hash, installs into the same program folder and reopens Vowely. Model/settings/dictionary data is retained. Failure is recorded locally and the existing app is reopened where possible; a required Windows reboot is reported rather than forced. Portable/source copies can check/download and migrate using the normal installer.
+
+The updater uses anonymous public GitHub requests and needs no API key on each PC. Publish a higher-version release with the matching Vowely-VERSION-Setup-x64.exe and SHA256SUMS.txt to offer an update; drafts, plain code pushes and source-only releases are ignored. Prereleases require Include prereleases. The installer targets Windows 10/11 x64-compatible PCs; model requirements and optional NVIDIA support are separate from the updater.
 
 Only update checks and explicit downloads contact GitHub; audio/text inference remains local. No audio, transcript, dictionary, configuration or device list is sent. Anonymous checks need no GitHub token. Updates are not silently downloaded or installed. Installers remain unsigned; checksums protect against corruption but do not provide independent code-signing trust if the publisher account is compromised. Update cache/preferences contain no dictation content and are excluded from Git and packaging.

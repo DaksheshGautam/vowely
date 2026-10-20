@@ -118,6 +118,20 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(w.ui.stack.currentIndex(),2)
         self.assertFalse(w.win.registered)
 
+    def test_update_notification_opens_details_and_sidebar_action_survives_compact_layout(self):
+        from localflow.updates import select_update
+        from test_updates import release
+        w=self.window(Config());w.show();self.app.processEvents()
+        w.updates.candidate=select_update([release('v9.0.0')],'1.0.0',False);w.updates.refresh()
+        self.assertTrue(w.ui.update_notice.isVisible())
+        w.resize(780,560);w.ui.adapt();self.app.processEvents()
+        self.assertEqual(w.ui.update_notice.action.text(),'↓')
+        self.assertLessEqual(w.ui.update_notice.width(),w.ui.sidebar.width())
+        self.assertTrue(w.ui.update_notice.action.isVisible())
+        with patch.object(w,'reveal') as reveal:
+            w.tray.messageClicked.emit();reveal.assert_called_once()
+        self.assertEqual(w.ui.settings_tabs.currentIndex(),4);self.assertEqual(w.ui.stack.currentIndex(),4)
+
     def test_vocabulary_search_and_removal_change_future_hints(self):
         w=self.window(Config());w.dictionary.add(['Acme','LocalTerm']);w.ui.navigate(2)
         w.ui.word_search.setText('acme')

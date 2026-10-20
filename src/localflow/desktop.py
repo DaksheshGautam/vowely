@@ -20,6 +20,9 @@ QWidget {font-family:'Segoe UI'; font-size:10pt; color:#eeedf6;}
 QFrame#sidebar {background:#1a1923; border-right:1px solid #2c2a38;}
 QFrame#card {background:#201f2b; border:1px solid #343140; border-radius:16px;}
 QFrame#hero {background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #2c273e,stop:1 #201f2b);border:1px solid #4b4264;border-radius:20px;}
+QFrame#updateNotice {background:#2b253b;border:1px solid #675184;border-radius:12px;}
+QFrame#updateNotice QPushButton {padding:6px 3px;font-size:9pt;}
+QFrame#updateNotice QLabel {font-size:9pt;}
 QLabel {background:transparent;}
 QLabel[role='muted'] {color:#aaa6bc;}
 QLabel[role='eyebrow'] {color:#bdb1df; font-size:9pt; font-weight:600;}
@@ -162,15 +165,21 @@ class DesktopUI:
         brand = QHBoxLayout();logo = QLabel();logo.setPixmap(application_icon().pixmap(34,34));brand.addWidget(logo)
         self.brand_name = label('Vowely','heading');brand.addWidget(self.brand_name);brand.addStretch();side.addLayout(brand);side.addSpacing(30)
         self.nav = []
+        navigation=QWidget()
+        nav_layout=QVBoxLayout(navigation);nav_layout.setContentsMargins(0,0,0,0);nav_layout.setSpacing(6)
+        nav_scroll=QScrollArea();nav_scroll.setWidgetResizable(True);nav_scroll.setWidget(navigation)
+        nav_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);side.addWidget(nav_scroll,1)
         group = QButtonGroup(w);group.setExclusive(True)
         for index,name in enumerate(self.NAMES):
             item = button('  '+name,lambda checked=False,i=index:self.navigate(i))
             item.setIcon(nav_icon(index));item.setIconSize(QSize(22,22));item.setCheckable(True);item.setProperty('nav',True)
             item.setToolTip(f'{name} · Alt+{index+1}');item.setAccessibleName(name)
-            group.addButton(item);self.nav.append(item);side.addWidget(item)
+            group.addButton(item);self.nav.append(item);nav_layout.addWidget(item)
             shortcut = QShortcut(QKeySequence(f'Alt+{index+1}'),w)
             shortcut.activated.connect(lambda i=index:self.navigate(i))
-        side.addStretch()
+        nav_layout.addStretch()
+        from .update_ui import UpdateNotice
+        self.update_notice=UpdateNotice(w);side.addWidget(self.update_notice)
         self.side_privacy = label('ON THIS PC\nNo transcript history','muted');side.addWidget(self.side_privacy)
         self.version = label(RELEASE_VERSION,'muted');side.addWidget(self.version)
         outer.addWidget(self.sidebar)
@@ -351,7 +360,7 @@ class DesktopUI:
         inner.addWidget(label('Audio and current text are held locally. No transcript history, external inference, telemetry or cloud sync. Model downloads and update installation require explicit action. Learned spellings are retained locally until removed.','muted'));categories[3].addWidget(box)
         for body in categories:body.addStretch()
         from .update_ui import UpdatePanel
-        w.updates=UpdatePanel(w);self.settings_tabs.addTab(w.updates,'Updates')
+        w.updates=UpdatePanel(w,self.update_notice);self.settings_tabs.addTab(w.updates,'Updates')
         layout.addWidget(self.settings_tabs)
         self.settings_save=button('Save settings',w.apply_settings,True);layout.addWidget(self.settings_save,0,Qt.AlignLeft)
         self.save_status=label('','muted');layout.addWidget(self.save_status);layout.addStretch()
@@ -522,6 +531,8 @@ class DesktopUI:
         narrow=self.w.width()<950
         self.sidebar.setFixedWidth(68 if narrow else 196)
         self.brand_name.setVisible(not narrow);self.side_privacy.setVisible(not narrow);self.version.setVisible(not narrow)
+        self.update_notice.set_compact(narrow)
+        if hasattr(self.w,'updates'):self.update_notice.refresh(self.w.updates)
         for i,item in enumerate(self.nav):item.setText('' if narrow else '  '+self.NAMES[i])
         if hasattr(self,'summary_grid'):
             for i,box in enumerate(self.summary_cards):self.summary_grid.addWidget(box,0,i)

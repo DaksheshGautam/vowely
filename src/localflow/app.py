@@ -196,6 +196,7 @@ class Window(QMainWindow):
             self.show_page(4);self.ui.settings_tabs.setCurrentIndex(4)
             if not self.updates.candidate:self.updates.check(True)
         self.tray_updates.triggered.connect(show_updates)
+        self.tray.messageClicked.connect(self.updates.show_details)
         menu.addSeparator()
         quit_action = menu.addAction("Quit")
         quit_action.triggered.connect(self.quit)

@@ -1,12 +1,18 @@
 # Changelog
 
+## 1.0.0-beta.2 — prerelease
+
+- Bottom-left update card on every page, with download progress, retry/details and explicit install/restart. Compact navigation keeps an accessible icon action; sidebar navigation scrolls on shorter screens.
+- Request a Windows notification once per newly discovered version, including while closed to the tray. Clicking the notification opens update details without starting a download. Notification display follows Windows settings; the in-app card remains available.
+- Always confirm before installing and restarting, including when the current result is empty. Recheck idle state after confirmation and installer verification; downloads never trigger installation automatically.
+
 ## 1.0.0-beta.1 — prerelease
 
 - Settings / Updates and tray checks, optional daily idle checks and selectable prerelease channel. Semantic version selection ignores historical release order and source-only archives.
 - Explicit cancellable installer download with SHA-256/GitHub-digest verification, progress, bounded requests, resume and retry. No user dictation data is transmitted.
 - Verified external install/restart handoff preserves program location and separate model/profile data. It waits for shutdown, rechecks the installer, reports failures/reboot requirements and protects unsaved results.
 
-Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.1 is the current installable prerelease.
+Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.2 is the current installable prerelease.
 
 ## 0.1.0-alpha.12 — installer prerelease
 

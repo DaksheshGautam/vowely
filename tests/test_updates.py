@@ -135,7 +135,7 @@ if os.name=='nt':
     os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
     from PySide6.QtWidgets import QApplication,QTextEdit,QMessageBox
     from PySide6.QtCore import QCoreApplication,QEvent
-    from localflow.update_ui import UpdatePanel
+    from localflow.update_ui import UpdatePanel,UpdateNotice
 
 
 @unittest.skipUnless(os.name=='nt','Windows Qt checks')
@@ -145,10 +145,12 @@ class UpdateUiTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
         self.preview=QTextEdit();self.window=SimpleNamespace(root=self.root,state='idle',quitting=False,preview=self.preview,quit=Mock())
-        self.panel=UpdatePanel(self.window)
+        self.notice=UpdateNotice(self.window);self.panel=UpdatePanel(self.window,self.notice)
+        self.window.updates=self.panel
+        self.panel.candidate=select_update([release('v9.0.0')],'1.0.0',False)
     def tearDown(self):
         self.panel.shutdown();self.panel.pool.waitForDone(3000);self.app.processEvents()
-        self.panel.close();self.preview.close();self.panel.deleteLater();self.preview.deleteLater()
+        self.panel.close();self.preview.close();self.notice.close();self.panel.deleteLater();self.preview.deleteLater();self.notice.deleteLater()
         QCoreApplication.sendPostedEvents(None,QEvent.DeferredDelete);self.app.processEvents();self.tmp.cleanup()
 
     def test_constructing_panel_never_contacts_network(self):
@@ -180,6 +182,54 @@ class UpdateUiTests(unittest.TestCase):
         with patch('localflow.update_ui.QMessageBox.question',return_value=QMessageBox.Cancel),patch.object(self.panel,'launch_job') as job:
             self.panel.install();job.assert_not_called()
         self.window.quit.assert_not_called()
+
+    def test_empty_result_also_requires_confirmation_and_cancel_prevents_install(self):
+        self.panel.installable=True;self.panel.cached=(self.root/'setup.exe','a'*64)
+        with patch('localflow.update_ui.QMessageBox.question',return_value=QMessageBox.Cancel) as confirm,patch.object(self.panel,'launch_job') as job:
+            self.panel.install();confirm.assert_called_once();job.assert_not_called()
+        self.window.quit.assert_not_called()
+
+    def test_confirmed_install_verifies_then_rechecks_idle_after_dialog(self):
+        self.panel.installable=True;self.panel.cached=(self.root/'setup.exe','a'*64)
+        with patch('localflow.update_ui.QMessageBox.question',return_value=QMessageBox.Yes),patch.object(self.panel,'launch_job') as job:
+            self.panel.install();self.assertEqual(job.call_args.args[0],'verify')
+        def start_recording(*args):self.window.state='recording';return QMessageBox.Yes
+        with patch('localflow.update_ui.QMessageBox.question',side_effect=start_recording),patch.object(self.panel,'launch_job') as job:
+            self.panel.install();job.assert_not_called()
+
+    def test_available_update_notifies_once_without_downloading_or_raising_window(self):
+        self.window.tray=Mock();self.window.reveal=Mock();self.panel.kind='check';candidate=self.panel.candidate
+        with patch('localflow.update_ui.QSystemTrayIcon.supportsMessages',return_value=True),patch.object(self.panel,'download') as download:
+            self.panel.completed(candidate);self.panel.completed(candidate)
+        self.window.tray.showMessage.assert_called_once();download.assert_not_called();self.window.reveal.assert_not_called()
+        self.assertFalse(self.notice.isHidden());self.assertIn('Download',self.notice.action.text())
+        self.assertEqual(json.loads((self.root/'update-settings.json').read_text())['notified_version'],candidate.version)
+
+    def test_notification_unavailable_keeps_bottom_left_action_and_does_not_mark_notified(self):
+        self.window.tray=Mock();self.panel.kind='check'
+        with patch('localflow.update_ui.QSystemTrayIcon.supportsMessages',return_value=False):self.panel.completed(self.panel.candidate)
+        self.window.tray.showMessage.assert_not_called();self.assertFalse(self.notice.isHidden())
+        self.assertEqual(self.panel.preferences['notified_version'],'')
+
+    def test_bottom_left_action_downloads_then_offers_confirmed_idle_install(self):
+        self.panel.refresh()
+        with patch.object(self.panel,'download') as download:self.notice.action.click();download.assert_called_once()
+        self.panel.installable=True;self.panel.cached=(self.root/'setup.exe','a'*64);self.panel.refresh()
+        self.assertEqual(self.notice.action.text(),'Install and restart')
+        with patch.object(self.panel,'show_details') as details,patch.object(self.panel,'install') as install:
+            self.notice.action.click();details.assert_called_once();install.assert_called_once()
+        self.window.state='recording';self.panel.refresh();self.assertFalse(self.notice.action.isEnabled())
+        self.window.state='idle';self.panel.refresh();self.assertTrue(self.notice.action.isEnabled())
+
+    def test_compact_action_keeps_accessible_download_and_channel_changes_clear_notice(self):
+        self.notice.set_compact(True);self.panel.refresh()
+        self.assertEqual(self.notice.action.text(),'↓');self.assertIn('Download update',self.notice.action.accessibleName())
+        self.assertTrue(self.notice.title.isHidden());self.panel.channel_changed();self.assertTrue(self.notice.isHidden())
+
+    def test_download_errors_keep_retry_action_and_never_start_install(self):
+        self.panel.kind='download';self.panel.failed('Connection interrupted')
+        self.assertFalse(self.notice.isHidden());self.assertIn('paused',self.notice.status.text())
+        self.assertTrue(self.notice.action.isEnabled());self.window.quit.assert_not_called()
 
     def test_held_recording_prevents_install_even_if_downloaded(self):
         self.panel.installable=True;self.panel.cached=(self.root/'setup.exe','a'*64);self.window.state='recording'
