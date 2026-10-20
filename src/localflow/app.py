@@ -772,6 +772,7 @@ class Window(QMainWindow):
         update = self.win.correction_update(self.edit_target,self.c,self.edit_pending)
         self.edit_pending = None
         if update is None:
+            self.dictionary_status.setText('Correction learning could not read this text box. Add spellings in Vocabulary if needed.')
             self.stop_learning();return
         if update.get('status')=='finished':
             words = update.get('words',[])

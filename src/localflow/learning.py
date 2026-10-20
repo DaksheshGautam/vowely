@@ -6,7 +6,7 @@ import re
 import unicodedata
 from typing import NamedTuple
 
-MAX_SPAN = 2000
+MAX_SPAN = 12000
 
 
 class Word(NamedTuple):

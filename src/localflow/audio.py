@@ -2,13 +2,14 @@ import threading
 import array
 import math
 import time
+from .config import MAX_RECORDING_SECONDS
 
 
 class Recorder:
     RATE = 16000
     METER_NOISE_FLOOR = 120 / 32768  # Visual gate only; never discards audio.
 
-    def __init__(self, device=None, max_seconds=60):
+    def __init__(self, device=None, max_seconds=MAX_RECORDING_SECONDS):
         self.device = device
         self.limit = max_seconds * self.RATE * 2
         self.data = bytearray()

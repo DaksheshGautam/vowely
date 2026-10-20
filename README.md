@@ -1,6 +1,6 @@
 # Vowely
 
-**v1.0.0-beta.2 — Windows installer prerelease**
+**v1.0.0-beta.3 — Windows installer prerelease**
 
 Download the Windows **Setup-x64.exe** from [Releases](https://github.com/DaksheshGautam/vowely/releases). It installs Vowely, Start-menu shortcuts and an uninstaller without a separate Python installation. On completion, the setup screen downloads missing models and engines after you choose **Start setup**. Existing verified files can be reused. The installer includes the current desktop, hold/toggle shortcuts, correction learning and final-result typing.
 
@@ -10,7 +10,7 @@ Audio and transcripts stay on your computer. No external inference APIs, telemet
 
 ## Download and start
 
-1. Download **Vowely-1.0.0-beta.2-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.2) and run it.
+1. Download **Vowely-1.0.0-beta.3-Setup-x64.exe** from the [installer prerelease](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.3) and run it.
 2. Finish installation, then choose **Start setup** in the model setup screen. It downloads only missing verified models/engines; choose an existing Vowely folder to reuse files. NVIDIA support is optional. No separate Python or developer tools are needed.
 3. Choose **Open Vowely**, complete microphone/shortcut setup, then dictate with your hold or toggle shortcut. Start-menu shortcuts reopen the app or model setup later.
 
@@ -33,6 +33,7 @@ New installations open a four-step setup flow: welcome, real three-second microp
 - **Press to start / stop:** focus the intended text box, press and release your toggle shortcut, speak, then press and release it again. Recording stops and the same final Whisper/Qwen processing runs before typing. Keep focus in the original box. The hold shortcut does not interrupt a toggle recording, and toggle does not interrupt a hold or manual test recording. The configured duration limit still stops recording automatically; Cancel discards it.
 - **Supported keys:** Ctrl/Alt/Shift with F1–F24 (except Windows-reserved F12), Space with Ctrl or Alt, or a letter/digit with two modifiers (e.g. Ctrl+Alt+D). Windows-key, modifier-only, bare typing keys, Alt+F4 and simple letter editing combinations are rejected. Shortcuts are reserved globally while active. Windows reports global reservation conflicts on Resume; per-application shortcuts cannot always be detected, so choose combinations you do not otherwise use. Repeat events are suppressed while holding a key. Very fast results wait up to two seconds for keys to be released, then safely remain preview-only if keys are still held.
 - **Live preview:** Whisper shows provisional text while you speak. Sentence-ending punctuation must agree across two previews before the sentence is sent to Qwen. There is no required 1.2-second silence gap. Qwen cleans text; it does not decide sentence boundaries.
+- **Recording duration (beta.3):** the default and maximum are five minutes (300 seconds), adjustable in Settings → Performance. The old 60-second default migrates once on load; other custom limits are preserved. Once saved with the new configuration version, an explicitly chosen shorter limit stays unchanged. The local Whisper request and live preview window accept the complete five-minute recording; processing time still depends on hardware and models.
 - **Stop:** recognises the complete recording again using the chosen final quality, reconciles changed sentences, and processes any unfinished tail. This adds final processing time.
 - **Models:** choose CPU or NVIDIA CUDA for recognition and cleanup independently. **Free model memory**, Cancel, Pause and Quit stop resident workers. Resume reloads models automatically. Closing settings keeps the shortcut and models active.
 - **Background:** Vowely starts in the tray automatically. No background button is needed. Use the tray's **Show Vowely** for settings, **Pause dictation** to stop the shortcut and current work, or **Quit** to exit. Resume automatically reloads models. Closing settings keeps dictation active.
@@ -54,7 +55,7 @@ Learning is on by default. **Learned words** in settings lets you inspect/remove
 
 The watcher uses the edited draft, without scanning sent-message history or identifying particular Send buttons. It can learn multiple replacements, including similar split/merged spellings. Pure additions/deletions, numbers, case/punctuation-only edits and address/path components are ignored. Changes outside the originally dictated portion are excluded. Existing/newly typed context is used only in RAM for alignment. Clear, Cancel, Pause, Quit, expiry or accessibility/security failures discard the watch. Record-a-test/WAV previews do not learn.
 
-Windows has no universal submission event. Compatible UI Automation TextPattern support and a complete field of at most 2,000 characters are required. UIA text/value events retain edits between polls; providers that omit/coalesce events can miss edits made immediately before clearing/leaving. The fallback checks every 150 ms. Unsupported or oversized fields skip learning without blocking dictation. Watches expire after ten minutes. Leaving or clearing an unsent draft also finalizes spelling hints; this is edit completion detection, not proof that a server received a message. See [PRIVACY.md](PRIVACY.md).
+Windows has no universal submission event. Compatible UI Automation TextPattern support and a complete field of at most 12,000 characters are required (raised from 2,000 in beta.3). UIA text/value events retain edits between polls; providers that omit/coalesce events can miss edits made immediately before clearing/leaving. The fallback checks every 150 ms. Starting the next dictation also reads the latest original eligible field before finishing the comparison, so corrections between the last sample and the shortcut are included. Unsupported or oversized fields skip learning without blocking dictation and show Vocabulary guidance. Watches expire after ten minutes. Leaving or clearing an unsent draft also finalizes spelling hints; this is edit completion detection, not proof that a server received a message. See [PRIVACY.md](PRIVACY.md).
 
 ## Modes
 
@@ -98,7 +99,7 @@ Program files live under Windows local application data / Programs / Vowely; mod
 
 ## Release history
 
-All twelve alpha versions are listed under [Releases](https://github.com/DaksheshGautam/vowely/releases). Alpha.2–alpha.11 are historical source snapshots published retrospectively from their original commits, with version-specific notes and automatic source archives. They do not include Windows installers. **[Beta.2 is the current installer download](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.2)**; use it for the latest desktop app and guided model setup. GitHub’s stable Latest badge is separate from prerelease version numbering.
+All twelve alpha versions are listed under [Releases](https://github.com/DaksheshGautam/vowely/releases). Alpha.2–alpha.11 are historical source snapshots published retrospectively from their original commits, with version-specific notes and automatic source archives. They do not include Windows installers. **[Beta.3 is the current installer download](https://github.com/DaksheshGautam/vowely/releases/tag/v1.0.0-beta.3)**; use it for the latest desktop app and guided model setup. GitHub’s stable Latest badge is separate from prerelease version numbering.
 
 ## In-app updates (1.0.0-beta.1)
 

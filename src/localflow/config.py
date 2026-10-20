@@ -2,6 +2,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 import json
 
+MAX_RECORDING_SECONDS = 300
+
 
 @dataclass
 class Config:
@@ -18,7 +20,8 @@ class Config:
     threads: int = 4
     language: str = "auto"
     microphone: int | None = None
-    max_seconds: int = 60
+    max_seconds: int = MAX_RECORDING_SECONDS
+    config_version: int = 2
     inference_timeout: int = 180
     hotkey: str = "Ctrl+Alt+F9"
     toggle_hotkey: str = ""  # Optional press once to start, press again to stop.
@@ -50,8 +53,10 @@ class Config:
             raise ValueError("asr_model must be base or small")
         if self.mode not in ("Natural", "Verbatim", "Developer"):
             raise ValueError("Unknown dictation mode")
-        if not 1 <= self.threads <= 8 or not 1 <= self.max_seconds <= 120:
-            raise ValueError("threads must be 1–8; max_seconds must be 1–120")
+        if type(self.config_version) is not int or self.config_version!=2:
+            raise ValueError('Unsupported configuration version')
+        if not 1 <= self.threads <= 8 or type(self.max_seconds) is not int or not 1 <= self.max_seconds <= MAX_RECORDING_SECONDS:
+            raise ValueError("threads must be 1–8; max_seconds must be 1–300")
         if not 1 <= self.inference_timeout <= 600:
             raise ValueError("inference_timeout must be 1–600 seconds")
         if type(self.beam_size) is not int or not 1 <= self.beam_size <= 5:
@@ -74,6 +79,10 @@ class Config:
         if not path.exists():
             return cls()
         values = json.loads(path.read_text(encoding="utf-8"))
+        if values.get('config_version',1)==1:
+            # Upgrade the old default once; subsequent explicit shorter limits survive.
+            if values.get('max_seconds')==60:values['max_seconds']=MAX_RECORDING_SECONDS
+            values['config_version']=2
         if 'allow_fields' in values:
             values.pop('allow_fields')  # Migrate the retired field-approval flow.
             values['auto_insert'] = True

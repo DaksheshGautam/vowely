@@ -135,7 +135,12 @@ class DraftWatch:
     def finish(self):
         with self.lock:
             if self.completed is not None: return self.completed
-            return self.session.finish() if self.session and self.eligible() else []
+            if not self.session or not self.eligible() or time.monotonic()>=self.session.deadline:return []
+            # A new dictation can arrive before the next 150 ms sample/event.
+            # Capture only the original eligible field, never the new focus.
+            if self.focused():self.capture()
+            if self.completed is not None:return self.completed
+            return self.session.finish()
 
     def close(self):
         self.closed = True

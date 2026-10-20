@@ -19,6 +19,7 @@ import wave
 
 from .engines import Cancelled, EngineError, cleanup_prompt, require_file, validate_cleanup
 from .formatting import preserved_cleanup
+from .config import MAX_RECORDING_SECONDS
 
 
 class ProcessOwner:
@@ -281,7 +282,7 @@ class ResidentModels:
 
     def transcribe(self,pcm,config,cancel,interim=False):
         if cancel.is_set() or self.stop.is_set(): raise Cancelled('Cancelled')
-        if not pcm or len(pcm)%2 or len(pcm)>120*32000:
+        if not pcm or len(pcm)%2 or len(pcm)>MAX_RECORDING_SECONDS*32000:
             raise EngineError('Invalid live audio frame.')
         context = ', '.join(config.personal_vocabulary).replace('<|','‹|').replace('|>','|›')
         fields = {'response_format':'json','language':config.language,

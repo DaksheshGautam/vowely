@@ -57,6 +57,14 @@ class AudioTests(unittest.TestCase):
         self.assertFalse(r.data)
         self.assertIsNone(r.stream)
 
+    def test_default_capture_passes_one_minute_and_stops_at_five_minutes(self):
+        r=Recorder();r.start();callback=r.stream.kwargs['callback']
+        callback(bytes(60*32000),60*16000,None,False)
+        self.assertFalse(r.full.is_set())
+        r.data.extend(bytes(239*32000))
+        with self.assertRaises(CallbackStop):callback(bytes(2*32000),2*16000,None,False)
+        self.assertTrue(r.full.is_set());self.assertEqual(len(r.stop()),300*32000)
+
     def test_incremental_reads_preserve_complete_stop_audio(self):
         r = Recorder()
         r.start()

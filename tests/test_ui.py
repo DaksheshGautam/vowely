@@ -321,5 +321,24 @@ class UiTests(unittest.TestCase):
         self.window.abort()
         self.assertFalse(popup.isVisible())
 
+    def test_continuing_same_sentence_saves_fresh_multiword_corrections_before_recording(self):
+        from localflow.learning import EditSession
+        from localflow.draftwatch import DraftWatch
+        from unittest.mock import Mock
+        target=Target(100,5,'editor.exe',(1,2),'','Editor',False,True)
+        before='Long existing draft. '*140+'Meet Jan at Acma.'
+        after='Long existing draft. '*140+'Meet Jane at Acme.'
+        watch=DraftWatch(Mock(),target,self.window.c,'Meet Jan at Acma.')
+        watch.session=EditSession(before,time.monotonic(),(before.index('Meet'),len(before)))
+        watch.eligible=Mock(return_value=True);watch.focused=Mock(return_value=True)
+        watch.pattern=Mock();watch.pattern.DocumentRange.GetText.return_value=after
+        self.window.edit_session=EditSession('Meet Jan at Acma.',time.monotonic());self.window.edit_target=target
+        with patch.object(self.window.win,'registered',True),patch.object(self.window.win,'snapshot',return_value=target), \
+             patch.object(self.window.win,'clear_correction_watch',side_effect=lambda finalize=False:watch.finish() if finalize else []), \
+             patch.object(self.window,'begin_recording') as begin,patch.object(self.window.learning_popup,'show_words') as popup:
+            self.window.pressed();begin.assert_called_once();popup.assert_called_once_with(['Jane','Acme'])
+        self.assertEqual(self.window.dictionary.words,['Jane','Acme'])
+        self.assertIn('Jane',self.window.inference_config().personal_vocabulary)
+
 
 if __name__ == "__main__": unittest.main()

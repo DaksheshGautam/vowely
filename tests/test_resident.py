@@ -4,7 +4,7 @@ import sys
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 
 from localflow.config import Config
 from localflow.engines import EngineError
@@ -12,6 +12,14 @@ from localflow.resident import ProcessOwner, ResidentModels
 
 
 class ResidentTests(unittest.TestCase):
+    def test_five_minute_recording_reaches_local_whisper_without_old_two_minute_rejection(self):
+        c=Config();models=ResidentModels(c,Path('.'));self.addCleanup(models.close)
+        request=Mock(return_value={'text':'Synthetic long recording.'})
+        models.asr=SimpleNamespace(request=request,close=lambda:None)
+        self.assertEqual(models.transcribe(bytes(300*32000),c,threading.Event()),'Synthetic long recording.')
+        self.assertGreater(len(request.call_args.args[2]),300*32000)
+        with self.assertRaises(EngineError):models.transcribe(bytes(301*32000),c,threading.Event())
+
     @unittest.skipUnless(sys.platform=='win32','Windows Job ownership')
     def test_owner_close_kills_child_and_rejects_late_assignment(self):
         owner = ProcessOwner()

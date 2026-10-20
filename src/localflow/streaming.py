@@ -150,7 +150,7 @@ class StreamingSession:
         self.fallback = fallback
         # Silence never commits audio here. Stable Whisper sentence endings
         # decide cleanup; Stop transcribes the complete recording for accuracy.
-        self.segmenter = PhraseBuffer(pause_seconds=None)
+        self.segmenter = PhraseBuffer(pause_seconds=None,max_phrase_seconds=config.max_seconds)
         self._condition = threading.Condition(threading.RLock())
         self._finals = deque()
         self._preview = None

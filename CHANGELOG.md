@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-beta.3 — prerelease
+
+- Five-minute microphone dictation limit (300 seconds), supported by capture, settings, live previews and resident Whisper requests. The legacy 60-second default migrates once; other custom limits and explicit future shorter limits are retained.
+- Correction learning supports eligible composers up to 12,000 characters, replacing the old 2,000-character cap. Starting another dictation freshly captures the original eligible field before finalizing edits, including multiple corrections made since the last sample.
+- Learning still commits on clearing/leaving the field or starting the next dictation, without a typing-pause timer. Sensitive/changed fields, expired sessions and provider failures retain their restrictions. Unsupported learning now reports guidance in Vocabulary.
+
 ## 1.0.0-beta.2 — prerelease
 
 - Bottom-left update card on every page, with download progress, retry/details and explicit install/restart. Compact navigation keeps an accessible icon action; sidebar navigation scrolls on shorter screens.
@@ -12,7 +18,7 @@
 - Explicit cancellable installer download with SHA-256/GitHub-digest verification, progress, bounded requests, resume and retry. No user dictation data is transmitted.
 - Verified external install/restart handoff preserves program location and separate model/profile data. It waits for shutdown, rechecks the installer, reports failures/reboot requirements and protects unsaved results.
 
-Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.2 is the current installable prerelease.
+Alpha.2–alpha.11 were published retrospectively as source snapshots from their original commits. They do not include Windows installers. Beta.3 is the current installable prerelease.
 
 ## 0.1.0-alpha.12 — installer prerelease
 

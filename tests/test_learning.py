@@ -127,5 +127,31 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(corrected_words('Meet Jan at 500, call Jon.',
                                         'Meet Jane at 600, call John.'),['Jane','John'])
 
+    def test_finishing_for_next_dictation_reads_edits_since_last_sample_in_long_draft(self):
+        import time
+        before='Existing context. '*150+'Meet Jan at Acma.'
+        after='Existing context. '*150+'Meet Jane at Acme.'
+        watch=DraftWatch(Mock(),Mock(),Config(),'Meet Jan at Acma.')
+        watch.session=EditSession(before,time.monotonic(),(before.index('Meet'),len(before)))
+        watch.eligible=Mock(return_value=True);watch.focused=Mock(return_value=True)
+        watch.pattern=Mock();watch.pattern.DocumentRange.GetText.return_value=after
+        self.assertTrue(watch.session.active)
+        self.assertEqual(watch.finish(),['Jane','Acme'])
+        watch.pattern.DocumentRange.GetText.assert_called_once()
+
+    def test_finish_after_focus_change_uses_cache_and_never_reads_new_field(self):
+        import time
+        watch=DraftWatch(Mock(),Mock(),Config(),'Meet Jan.')
+        watch.session=EditSession('Meet Jan.',time.monotonic());watch.session.observe('Meet Jane.',time.monotonic())
+        watch.eligible=Mock(return_value=True);watch.focused=Mock(return_value=False);watch.capture=Mock()
+        self.assertEqual(watch.finish(),['Jane']);watch.capture.assert_not_called()
+
+    def test_finish_in_sensitive_field_or_expired_session_discards_edits(self):
+        for eligible,now in ((False,0),(True,-1000)):
+            watch=DraftWatch(Mock(),Mock(),Config(),'Meet Jan.')
+            watch.session=EditSession('Meet Jan.',now);watch.session.last='Meet Jane.'
+            watch.eligible=Mock(return_value=eligible);watch.capture=Mock()
+            self.assertEqual(watch.finish(),[]);watch.capture.assert_not_called()
+
 
 if __name__=='__main__': unittest.main()

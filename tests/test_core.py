@@ -45,6 +45,15 @@ class PolicyTests(unittest.TestCase):
 
 
 class ConfigTests(unittest.TestCase):
+    def test_old_one_minute_default_migrates_once_but_explicit_shorter_limits_survive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'config.json';path.write_text(json.dumps({'max_seconds':60,'threads':3,'personal_vocabulary':['Example']}))
+            c=Config.load(path);self.assertEqual(c.max_seconds,300);self.assertEqual(c.threads,3);self.assertEqual(c.personal_vocabulary,['Example'])
+            c.max_seconds=60;c.save(path);self.assertEqual(Config.load(path).max_seconds,60)
+            path.write_text(json.dumps({'max_seconds':97}));self.assertEqual(Config.load(path).max_seconds,97)
+        Config(max_seconds=300).validate()
+        with self.assertRaises(ValueError):Config(max_seconds=301).validate()
+
     def test_roundtrip_and_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "config.json"

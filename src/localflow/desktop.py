@@ -246,7 +246,7 @@ class DesktopUI:
         w.original = QTextEdit();w.original.setReadOnly(True);w.original.setMinimumHeight(140);w.original.setMaximumHeight(240)
         w.original.setAccessibleName('Original Whisper recognition');w.original.setPlaceholderText('Original words before cleanup appear here.')
         self.threads = QSpinBox();self.threads.setRange(1,8);self.threads.setValue(c.threads)
-        self.duration = QSpinBox();self.duration.setRange(1,120);self.duration.setSuffix(' seconds');self.duration.setValue(c.max_seconds)
+        self.duration = QSpinBox();self.duration.setRange(1,300);self.duration.setSuffix(' seconds');self.duration.setValue(c.max_seconds)
         self.timeout = QSpinBox();self.timeout.setRange(1,600);self.timeout.setSuffix(' seconds');self.timeout.setValue(c.inference_timeout)
         self.deny_processes = QTextEdit();self.deny_processes.setAcceptRichText(False);self.deny_processes.setPlainText('\n'.join(c.deny_processes));self.deny_processes.setMaximumHeight(140)
         self.deny_names = QTextEdit();self.deny_names.setAcceptRichText(False);self.deny_names.setPlainText('\n'.join(c.deny_name_fragments));self.deny_names.setMaximumHeight(140)

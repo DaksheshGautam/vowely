@@ -32,6 +32,10 @@ class Runtime:
 
 
 class StreamingTests(unittest.TestCase):
+    def test_live_preview_window_uses_configured_five_minute_recording_limit(self):
+        session=StreamingSession(Runtime(),Config(max_seconds=300),Path('.'))
+        self.assertEqual(session.segmenter.max_bytes,300*32000)
+
     def execute(self,session,pcm):
         output = {}
         def target():
