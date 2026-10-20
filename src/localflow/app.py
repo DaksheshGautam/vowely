@@ -28,6 +28,7 @@ from .resident import ResidentModels
 from .streaming import StreamingSession
 from .version import APP_NAME, RELEASE_VERSION
 from .overlay import DictationOverlay
+from .branding import application_icon, identify_windows_app
 
 
 class Signals(QObject):
@@ -257,7 +258,8 @@ class Window(QMainWindow):
         self.timer.timeout.connect(self.tick)
         self.timer.start()
         QTimer.singleShot(0, self.win.prepare_probe)
-        icon = self.style().standardIcon(QStyle.SP_MediaVolume)
+        icon = application_icon()
+        QApplication.instance().setWindowIcon(icon)
         self.setWindowIcon(icon)
         self.tray = QSystemTrayIcon(icon, self)
         menu = QMenu(self)
@@ -734,6 +736,7 @@ def main():
     args = parser.parse_args()
     if sys.platform != "win32":
         parser.error("The desktop MVP requires Windows")
+    identify_windows_app()
     app = QApplication(sys.argv[:1])
     app.setQuitOnLastWindowClosed(False)
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)

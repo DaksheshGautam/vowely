@@ -22,6 +22,9 @@ End If
 If Files.FileExists(Files.BuildPath(Root, "app-final-insertion\Vowely\Vowely.exe")) Then
     App = Files.BuildPath(Root, "app-final-insertion\Vowely\Vowely.exe")
 End If
+If Files.FileExists(Files.BuildPath(Root, "app-branding\Vowely\Vowely.exe")) Then
+    App = Files.BuildPath(Root, "app-branding\Vowely\Vowely.exe")
+End If
 Python = Files.BuildPath(Root, ".venv\Scripts\pythonw.exe")
 If Files.FileExists(App) Then
     Command = Chr(34) & App & Chr(34) & " --root " & Chr(34) & Root & Chr(34)

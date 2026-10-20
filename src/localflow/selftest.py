@@ -21,6 +21,8 @@ def run(root, report_path):
         report['input_device_count'] = sum(d['max_input_channels'] > 0 for d in sd.query_devices())
         report['starts_disarmed'] = not window.win.registered
         report['microphone_closed'] = window.recorder is None
+        report['icon_loaded'] = not window.windowIcon().isNull() and not window.tray.icon().isNull()
+        report['icon_sizes'] = [size.width() for size in window.windowIcon().availableSizes()]
         def finish():
             try:
                 report['probe_process_alive'] = bool(window.win.probe and window.win.probe.process.is_alive())
@@ -32,7 +34,7 @@ def run(root, report_path):
             window.quit()
         QTimer.singleShot(1800, finish)
         app.exec()
-        report['success'] = all(report.get(k) is True for k in ('starts_disarmed','microphone_closed','probe_process_alive','bounded_probe_returned'))
+        report['success'] = all(report.get(k) is True for k in ('starts_disarmed','microphone_closed','probe_process_alive','bounded_probe_returned','icon_loaded'))
     except Exception:
         report['success'] = False
         report['error'] = traceback.format_exc()

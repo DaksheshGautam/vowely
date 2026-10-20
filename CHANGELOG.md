@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-alpha.7 — unreleased
+
+- User-supplied lavender V emblem for the window, tray, Windows executable and local shortcut icons.
+- Bundled artwork in source installations and portable builds, with seven Windows icon sizes from 16 to 256 pixels and a stable taskbar identity.
+
 ## 0.1.0-alpha.6 — unreleased
 
 - Fixed final typing being blocked when one Qwen edit was rejected and the original recognized wording was retained.

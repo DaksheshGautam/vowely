@@ -2,7 +2,7 @@
 
 **v0.1.0-alpha.1 — Windows prerelease**
 
-The main branch also contains **0.1.0-alpha.6 development changes** for automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
+The main branch also contains **0.1.0-alpha.7 development changes** for the lavender V app icon, automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
 
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
