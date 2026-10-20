@@ -1,5 +1,7 @@
 # Architecture
 
+Shortcuts use Windows RegisterHotKey with MOD_NOREPEAT and separate IDs for hold and toggle. Registration is atomic: a conflict unregisters any already reserved member of the pair. Existing `hotkey` remains the hold binding; optional `toggle_hotkey` defaults empty. The controller records which shortcut started capture: hold ends when any required key is lifted; toggle ends on its next press, independent of current focus. Both enter the unchanged Stop/finalization path and duration/cancellation limits. Target identity is captured at start and checked before final typing. A bounded Qt timer defers very fast completion while stop keys remain held; it never restores focus. `shortcuts.py` captures combinations only in an explicitly focused picker, without a keyboard hook.
+
 ## Components
 
 The desktop is assembled in desktop.py and delegates every engine action to Window. ui_jobs.py handles bounded local file/dependency checks, explicit microphone diagnostics and asynchronous model teardown. Existing capture, ASR/Qwen inference, validation, focus insertion, draft watching and floating overlay remain separate. See UI_DESIGN.md for the complete feature-to-page mapping. Model preparation and teardown share an ordered lifecycle pool; cancellation signals are immediate, with blocking close/start operations on workers. Quit polls worker completion through Qt timers rather than waiting on the UI thread. The current text document is shared by its read-only Home/setup views, not copied into saved session history.

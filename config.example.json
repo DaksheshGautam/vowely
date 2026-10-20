@@ -15,6 +15,7 @@
   "max_seconds": 60,
   "inference_timeout": 180,
   "hotkey": "Ctrl+Alt+F9",
+  "toggle_hotkey": "",
   "auto_insert": true,
   "deny_processes": [
     "keepass.exe",

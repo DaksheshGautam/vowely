@@ -249,10 +249,10 @@ class UiTests(unittest.TestCase):
         self.window.win.registered = False
 
     def test_startup_registers_shortcut_without_user_setup(self):
-        def reserve(key): self.window.win.registered = True
+        def reserve(key, toggle=''): self.window.win.registered = True
         with patch.object(self.window.win,'arm',side_effect=reserve) as reserve_key:
             self.window.start_automatically()
-            reserve_key.assert_called_once_with(self.window.c.hotkey)
+            reserve_key.assert_called_once_with(self.window.c.hotkey, '')
             self.window.start_automatically()
             reserve_key.assert_called_once()
         self.assertEqual(self.window.pause.text(),'Pause dictation')
@@ -262,7 +262,7 @@ class UiTests(unittest.TestCase):
         with patch.object(self.window,'prepare_live'):
             self.window.live.setChecked(True)
         self.window.state = 'idle'
-        def reserve(key): self.window.win.registered = True
+        def reserve(key, toggle=''): self.window.win.registered = True
         with patch.object(self.window.win,'arm',side_effect=reserve),patch.object(self.window,'prepare_live') as prepare:
             self.window.start_automatically()
             prepare.assert_called_once()

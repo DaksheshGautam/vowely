@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QCheckBox, QComb
 
 from .branding import application_icon
 from .version import RELEASE_VERSION
+from .shortcuts import ShortcutEdit
 
 
 STYLE = '''
@@ -216,7 +217,8 @@ class DesktopUI:
         w.cleanup_backend = QComboBox();w.cleanup_backend.addItems(['CPU','NVIDIA CUDA (live mode)']);w.cleanup_backend.setCurrentIndex(int(c.cleanup_gpu))
         w.language = QLineEdit(c.language);w.language.setPlaceholderText('auto, en, hi…')
         w.vad = QCheckBox('Use local Silero voice detection');w.vad.setChecked(bool(c.vad_model))
-        w.hotkey = QLineEdit(c.hotkey)
+        w.hotkey = ShortcutEdit(c.hotkey,name='Hold to dictate shortcut')
+        w.toggle_hotkey = ShortcutEdit(c.toggle_hotkey,optional=True,name='Press to start or stop shortcut')
         w.mic = QComboBox();w.mic.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon);w.mic.setMinimumContentsLength(18)
         w.all_inputs = QCheckBox('Show all audio inputs (advanced)');w.populate_microphones(c.microphone);w.all_inputs.toggled.connect(w.change_microphone_view)
         w.cleanup = QCheckBox('Use Qwen for local text cleanup');w.cleanup.setChecked(c.cleanup_enabled)
@@ -239,7 +241,7 @@ class DesktopUI:
         self.timeout = QSpinBox();self.timeout.setRange(1,600);self.timeout.setSuffix(' seconds');self.timeout.setValue(c.inference_timeout)
         self.deny_processes = QTextEdit();self.deny_processes.setAcceptRichText(False);self.deny_processes.setPlainText('\n'.join(c.deny_processes));self.deny_processes.setMaximumHeight(140)
         self.deny_names = QTextEdit();self.deny_names.setAcceptRichText(False);self.deny_names.setPlainText('\n'.join(c.deny_name_fragments));self.deny_names.setMaximumHeight(140)
-        w.controls = [w.mode,w.model,w.hotkey,w.mic,w.cleanup,w.insert,w.backend,w.language,w.vad,w.all_inputs,
+        w.controls = [w.mode,w.model,w.hotkey,w.toggle_hotkey,w.mic,w.cleanup,w.insert,w.backend,w.language,w.vad,w.all_inputs,
                       w.search_quality,w.vocabulary,w.cleanup_backend,w.live,w.learn,self.threads,self.duration,self.timeout,self.deny_processes,self.deny_names]
 
     def build_home(self):
@@ -333,7 +335,11 @@ class DesktopUI:
         self.audio_test=button('Test microphone · 3 seconds',w.test_microphone);row.addWidget(self.audio_test);row.addStretch();inner.addLayout(row)
         self.audio_level=QProgressBar();self.audio_level.setTextVisible(False);self.audio_level.setRange(0,100);self.audio_level.setAccessibleName('Microphone diagnostic level');inner.addWidget(self.audio_level)
         self.audio_status=label('The microphone opens only when you explicitly test or dictate. Test audio is discarded.','muted');inner.addWidget(self.audio_status);categories[0].addWidget(box)
-        box,inner=card('How your words are handled');fields=form();fields.addRow('Mode',w.mode);fields.addRow('Language',w.language);fields.addRow('Push-to-talk shortcut',w.hotkey);inner.addLayout(fields);inner.addWidget(w.insert)
+        box,inner=card('Dictation shortcuts','Pause dictation from Home to change keys. Select Set keys and press a combination, or type it in the field. Save, then Resume from Home.')
+        fields=form();fields.addRow('Hold to dictate',w.hotkey);fields.addRow('Press to start / stop',w.toggle_hotkey);inner.addLayout(fields)
+        inner.addWidget(label('Hold: release any key to finish. Toggle: press once to listen, release, then press the same combination again to finish. Both shortcuts can be available together. Leaving the toggle field empty disables it.','muted'))
+        inner.addWidget(label('Use Ctrl / Alt / Shift with a function key (except F12) or Space. Letters and digits need two modifiers, e.g. Ctrl+Alt+D. Windows-key and modifier-only combinations are unavailable. Chosen shortcuts are reserved globally while dictation is active; app-specific shortcuts cannot always be detected.','muted'));categories[1].addWidget(box)
+        box,inner=card('How your words are handled');fields=form();fields.addRow('Mode',w.mode);fields.addRow('Language',w.language);inner.addLayout(fields);inner.addWidget(w.insert)
         inner.addWidget(label('Natural removes fillers and fixes punctuation. Developer preserves technical terms. Verbatim keeps recognition without Qwen. Shortcut conflicts are reported; no silent remapping.','muted'))
         inner.addWidget(button('Recognition & cleanup settings',lambda:self.navigate(3)),0,Qt.AlignLeft);categories[1].addWidget(box)
         box,inner=card('Processing limits','Changes affect future recordings. Existing model paths and custom configuration values are preserved.')
@@ -349,7 +355,7 @@ class DesktopUI:
 
     def build_help(self):
         w=self.w;layout=self.page_layouts[5]
-        box,inner=card('A quick way to get started','Focus an editable text box. Hold your shortcut to speak. Release and stay in the box while the ring finishes. Vowely types the final result once.')
+        box,inner=card('A quick way to get started','Focus an editable text box. Hold your hold shortcut to speak and release to finish, or use the optional toggle shortcut: press once to start, again to stop. Stay in the box while the ring finishes. Vowely types the final result once. Configure both in Settings → Dictation.')
         inner.addWidget(button('Revisit setup',self.open_onboarding,True),0,Qt.AlignLeft);layout.addWidget(box)
         box,inner=card('Preview-only tests','These actions never type into another app. WAV input must be uncompressed 16 kHz, mono, PCM16 and under 120 seconds.')
         inner.addWidget(w.record_button);inner.addWidget(w.file_button);inner.addWidget(button('Open current result',lambda:self.navigate(1)))
@@ -394,8 +400,8 @@ class DesktopUI:
         inner.addWidget(button('Check model files',self.w.check_assets,True),0,Qt.AlignLeft)
         inner.addWidget(button('Open model settings',lambda:self.navigate(3)),0,Qt.AlignLeft)
         inner.addWidget(label('Missing files? Follow SETUP.md or “Setup models and engines.ps1”. This flow never starts a download.','muted'));layout.addWidget(box);layout.addStretch()
-        layout=self.setup_stack.widget(3).layout();box,inner=card('Your shortcut. Your first words.','Choose Ctrl/Alt/Shift plus F1–F11. Try: “This is my first dictation with Vowely.”')
-        self.setup_hotkey=QLineEdit();self.setup_hotkey.setAccessibleName('Setup shortcut');inner.addWidget(self.setup_hotkey)
+        layout=self.setup_stack.widget(3).layout();box,inner=card('Your shortcut. Your first words.','Choose a hold shortcut, e.g. Ctrl+Alt+F9. An optional press-to-start / stop shortcut is available in Settings → Dictation. Try: “This is my first dictation with Vowely.”')
+        self.setup_hotkey=ShortcutEdit(name='Setup shortcut');inner.addWidget(self.setup_hotkey)
         self.setup_use_hotkey=button('Use this shortcut',self.use_setup_shortcut);inner.addWidget(self.setup_use_hotkey,0,Qt.AlignLeft)
         self.setup_sample=button('Record a sample · preview only',self.w.manual_record,True);inner.addWidget(self.setup_sample,0,Qt.AlignLeft)
         self.setup_result=QTextEdit();self.setup_result.setReadOnly(True);self.setup_result.setDocument(self.w.preview.document());self.setup_result.setMinimumHeight(100);self.setup_result.setMaximumHeight(190);inner.addWidget(self.setup_result)
@@ -515,7 +521,7 @@ class DesktopUI:
                'audio_testing':'Checking microphone','stopping_audio':'Stopping microphone','stopping':'Closing models…'}.get(w.state,'Ready' if active else 'Paused')
         self.home_state.setText(state)
         self.home_busy.setVisible(busy and w.state!='recording')
-        self.shortcut_label.setText(w.c.hotkey)
+        self.shortcut_label.setText('Hold · '+w.c.hotkey+ ('\nStart / stop · '+w.c.toggle_hotkey if w.c.toggle_hotkey else ''))
         self.summary_values[0].setText(w.c.mode);self.summary_values[1].setText('Whisper '+w.c.asr_model.title());self.summary_values[2].setText('Automatic' if w.c.language=='auto' else w.c.language.upper())
         self.home_microphone.setText('Input · '+w.mic.currentText())
         self.editor_state.setText(state+' · '+w.status.text())

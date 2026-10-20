@@ -9,21 +9,32 @@ from .policy import Target, insertion_allowed
 
 
 def parse_hotkey(value):
-    parts = value.upper().split("+")
+    if not isinstance(value, str):
+        raise ValueError("Shortcut must be text.")
+    parts = [part.strip() for part in value.upper().split("+")]
     if len(set(parts)) != len(parts) or len(parts) < 2:
-        raise ValueError("Choose Ctrl/Alt/Shift plus F1–F11 (e.g. Ctrl+Alt+F9).")
+        raise ValueError("Choose a key with Ctrl, Alt or Shift (e.g. Ctrl+Alt+F9).")
     modifiers = {"CTRL": 2, "ALT": 1, "SHIFT": 4}
     if any(x not in modifiers for x in parts[:-1]):
         raise ValueError("Only Ctrl, Alt and Shift modifiers are supported.")
     key = parts[-1]
-    if not key.startswith("F") or not key[1:].isdigit() or not 1 <= int(key[1:]) <= 11:
-        raise ValueError("Choose F1–F11. F12 is reserved by Windows.")
     mod = sum(modifiers[x] for x in parts[:-1])
-    return mod, 0x70 + int(key[1:]) - 1
+    if key.startswith('F') and key[1:].isdigit() and 1 <= int(key[1:]) <= 24:
+        if int(key[1:]) == 12: raise ValueError('F12 is reserved by Windows.')
+        if mod == 1 and int(key[1:]) == 4: raise ValueError('Alt+F4 is reserved for closing windows.')
+        return mod, 0x70 + int(key[1:]) - 1
+    if len(key) == 1 and key in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789':
+        if len(parts) < 3:
+            raise ValueError('Letters and digits need two modifiers, e.g. Ctrl+Alt+D, to protect typing shortcuts.')
+        return mod, ord(key)
+    if key == 'SPACE' and mod != 4:
+        return mod, 0x20
+    raise ValueError('Use a function key (except F12), Space, or a letter/digit with two modifiers. Windows-key and modifier-only shortcuts are unavailable.')
 
 
 class Windows:
     HOTKEY_ID = 0x4C46
+    TOGGLE_HOTKEY_ID = 0x4C47
 
     def __init__(self):
         if sys.platform != "win32":
@@ -37,22 +48,50 @@ class Windows:
         self.user.GetAsyncKeyState.restype = ct.c_short
         self.registered = False
         self.vk = None
+        self.bindings = {}
         self.uia = None
         self.probe = None
         self._draft_watch = None
 
-    def arm(self, key):
+    def arm(self, key, toggle_key=''):
         if self.registered:
             raise RuntimeError("Disarm the current shortcut before changing it.")
-        mod, vk = parse_hotkey(key)
-        if not self.user.RegisterHotKey(None, self.HOTKEY_ID, mod | 0x4000, vk):
-            raise RuntimeError("Shortcut could not be reserved (possibly already in use). Choose another shortcut.")
-        self.registered, self.vk = True, vk
+        bindings = {'hold': parse_hotkey(key)}
+        if toggle_key:
+            bindings['toggle'] = parse_hotkey(toggle_key)
+            if bindings['hold'] == bindings['toggle']:
+                raise ValueError('Hold and toggle shortcuts must be different.')
+        ids = {'hold': self.HOTKEY_ID, 'toggle': self.TOGGLE_HOTKEY_ID}
+        reserved = []
+        try:
+            for kind, (mod, vk) in bindings.items():
+                if not self.user.RegisterHotKey(None, ids[kind], mod | 0x4000, vk):
+                    raise RuntimeError(f'{kind.capitalize()} shortcut could not be reserved (possibly already in use). Choose another shortcut.')
+                reserved.append(ids[kind])
+        except Exception:
+            for identity in reserved: self.user.UnregisterHotKey(None, identity)
+            raise
+        self.bindings = bindings
+        self.registered, self.vk = True, bindings['hold'][1]
 
     def disarm(self):
         if self.registered:
             self.user.UnregisterHotKey(None, self.HOTKEY_ID)
+            if 'toggle' in self.bindings:
+                self.user.UnregisterHotKey(None, self.TOGGLE_HOTKEY_ID)
         self.registered, self.vk = False, None
+        self.bindings = {}
+
+    def shortcut_down(self, kind='hold'):
+        binding = self.bindings.get(kind)
+        if binding is None: return False
+        mod, vk = binding
+        return self.down(vk) and all(self.down(code) for bit, code in ((1,0x12),(2,0x11),(4,0x10)) if mod & bit)
+
+    def trigger_down(self):
+        keys = {vk for _,vk in getattr(self,'bindings',{}).values()}
+        if self.vk is not None: keys.add(self.vk)
+        return any(self.down(vk) for vk in keys)
 
     def down(self, vk):
         return bool(self.user.GetAsyncKeyState(vk) & 0x8000)
@@ -132,7 +171,7 @@ class Windows:
     def insert(self, target, text, config):
         if not text or len(text) > 12000:
             return False, "Empty or oversized result. Preview only."
-        if self.modifiers_down() or (self.vk is not None and self.down(self.vk)):
+        if self.modifiers_down() or self.trigger_down():
             return False, "Shortcut keys are still held. Preview only."
         allowed, why = insertion_allowed(target, self.snapshot(), config)
         if not allowed:
@@ -182,7 +221,7 @@ class Windows:
             chunks.append(pending)
         for index, chunk in enumerate(chunks):
             allowed, why = insertion_allowed(target, self.snapshot(), config)
-            if not allowed or self.modifiers_down() or (self.vk is not None and self.down(self.vk)):
+            if not allowed or self.modifiers_down() or self.trigger_down():
                 return False, ('Insertion stopped; check for partial text. ' if index else '') + (why if not allowed else 'Keys are held.')
             units = chunk.encode('utf-16-le')
             events = []

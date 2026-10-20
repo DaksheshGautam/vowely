@@ -21,6 +21,7 @@ class Config:
     max_seconds: int = 60
     inference_timeout: int = 180
     hotkey: str = "Ctrl+Alt+F9"
+    toggle_hotkey: str = ""  # Optional press once to start, press again to stop.
     auto_insert: bool = True
     deny_processes: list[str] = field(default_factory=lambda: [
         "keepass.exe", "keepassxc.exe", "1password.exe", "bitwarden.exe",
@@ -36,6 +37,12 @@ class Config:
     learn_corrections: bool = True
 
     def validate(self):
+        from .windows import parse_hotkey
+        hold = parse_hotkey(self.hotkey)
+        if not isinstance(self.toggle_hotkey, str):
+            raise ValueError('Toggle shortcut must be text or empty to disable it.')
+        if self.toggle_hotkey and parse_hotkey(self.toggle_hotkey) == hold:
+            raise ValueError('Hold and toggle shortcuts must be different.')
         for value in (self.gpu, self.cleanup_enabled, self.auto_insert,self.streaming_enabled,self.cleanup_gpu,self.learn_corrections):
             if type(value) is not bool:
                 raise ValueError("Model, typing, streaming and learning switches must be JSON booleans")

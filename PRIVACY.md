@@ -3,7 +3,7 @@
 ## Defaults
 
 - No external APIs, telemetry, analytics, automatic downloads, transcript history or external runtime network requests. Live mode uses protected servers on this PC only; see below.
-- App starts in the tray, registers its shortcut and loads configured models automatically. Closing settings preserves the shortcut and current operation. The nonactivating indicator shows recording/processing. Pause dictation stops both; Quit releases the shortcut and exits. The microphone opens only while holding the shortcut in an eligible field or after an explicit Record a test action. WAV replay never opens it. Duration is capped, and cancellation invalidates pending results.
+- App starts in the tray, registers its shortcut and loads configured models automatically. Closing settings preserves the shortcut and current operation. The nonactivating indicator shows recording/processing. Pause dictation stops both; Quit releases the shortcut and exits. The microphone opens only during hold or toggle dictation started in an eligible field, or after an explicit Record a test action. WAV replay never opens it. Duration is capped, and cancellation invalidates pending results.
 - `auto_insert=true`; field approvals and the allowlist have been removed. The clean release configuration uses CPU Whisper Small and CPU Qwen, with selectable Silero and independent GPU choices. The microphone remains closed until a recording action. No microphone fallback to a different device if the configured capture fails.
 - No automatic clipboard writes. Copy is a user action. Windows clipboard history and clipboard sync can retain or transmit copied text independently; the app does not toggle those OS settings.
 
@@ -11,7 +11,7 @@
 
 The redesigned desktop retains only the current result and original recognition in RAM. Home, the editor and setup share that same current document; there is no history database. First-run progress/completion is stored only as a boolean and format version in local ui-state.json, excluded from Git and release packaging. Existing installations keep their configuration. Local model/dependency checks inspect configured files without inference, microphone access or network requests. The explicit three-second microphone diagnostic uses Recorder in a worker and discards audio, retaining only a level/result message. Setup/sample recordings use the existing preview-only pipeline and retention rules. No update checker, startup registration, cloud option or model downloader is enabled by the new interface.
 
-Focus an editable text box and hold the shortcut to dictate. Vowely captures that control's window, process and UIA runtime identity and checks them again before typing the final result. No field approval or AutomationId is required. Legacy allowlist settings are removed during migration. Disable automatic typing in settings if you want preview-only dictation.
+Focus an editable text box and hold the hold shortcut, or press the configured toggle shortcut once to start and again to stop. Vowely captures that control's window, process and UIA runtime identity and checks them again before typing the final result. No field approval or AutomationId is required. Legacy allowlist settings are removed during migration. Disable automatic typing in settings if you want preview-only dictation.
 
 Password, sensitive, denied, read-only and unknown controls remain blocked. Deny settings remain configurable:
 

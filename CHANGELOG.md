@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.11 — unreleased
+
+- Configurable hold-to-dictate and optional press-to-start / press-again-to-stop shortcuts, available together in Settings / Dictation, with a keyboard picker and dashboard instructions. Existing hold shortcuts are preserved; toggle starts disabled.
+- Function keys, Space, and letters/digits with two modifiers; unsupported/reserved combinations and duplicate bindings are rejected. Windows reservation conflicts release any partially registered pair, with no alternate mapping.
+- Hold ends on release of any required key. Toggle ends on its next press or the existing maximum duration. Both use the existing final recognition, cleanup and focus-checked typing. Fast completions wait briefly for stop keys without blocking the UI.
+
 ## 0.1.0-alpha.10 — unreleased
 
 - Charcoal/lavender PySide6 desktop with Home, current-session Dictation, Vocabulary, Models, categorized Settings and Help pages; responsive sidebar, keyboard navigation, visible save actions and local error/loading states.

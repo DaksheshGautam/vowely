@@ -12,7 +12,7 @@ features, extra models, startup registration or automatic updates.
 | Vocabulary | Manual names/phrases, learned dictionary, remove selected words, correction-learning switch and local status |
 | Models & performance | Whisper Base/Small, independent ASR/Qwen CPU/CUDA choices, beam search, cleanup and live switches, async model load/unload, installed assets, real resident backend status |
 | Settings / Audio | Deduplicated microphones, advanced audio inputs, refresh, local microphone test, optional Silero VAD |
-| Settings / Dictation | Natural/Developer/Verbatim, language, hotkey, auto-type, live mode explanation and sample shortcut use |
+| Settings / Dictation | Separate hold and optional toggle shortcut pickers, supported-key guidance, Natural/Developer/Verbatim, language, auto-type and recognition settings link |
 | Settings / Performance | Threads, maximum recording duration, inference timeout; all existing engine/file paths remain preserved |
 | Settings / Privacy | Automatic typing policy explanation, editable process/name denylists, local retention and clipboard contract |
 | Help & diagnostics | Explicit microphone test, manual preview recording, local WAV replay, async file/dependency checks, setup steps, version and offline troubleshooting |

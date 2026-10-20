@@ -109,8 +109,8 @@ class HotkeyFilter(QAbstractNativeEventFilter):
 
     def nativeEventFilter(self, event_type, message):
         msg = wintypes.MSG.from_address(int(message))
-        if msg.message == 0x0312 and msg.wParam == Windows.HOTKEY_ID:
-            self.callback()
+        if msg.message == 0x0312 and msg.wParam in (Windows.HOTKEY_ID, Windows.TOGGLE_HOTKEY_ID):
+            self.callback('toggle' if msg.wParam == Windows.TOGGLE_HOTKEY_ID else 'hold')
             return True, 0
         return False, 0
 
@@ -145,6 +145,7 @@ class Window(QMainWindow):
         self.target = None
         self.recorder = None
         self.button_recording = False
+        self.recording_shortcut = 'hold'
         self.stop_requested = False
         self.generation = 0
         self.cancel = threading.Event()
@@ -249,6 +250,7 @@ class Window(QMainWindow):
         c.beam_size = self.search_quality.currentData()
         c.personal_vocabulary = list(dict.fromkeys(x.strip() for x in self.vocabulary.text().split(',') if x.strip()))
         c.hotkey, c.microphone = self.hotkey.text().strip(), self.mic.currentData()
+        c.toggle_hotkey = self.toggle_hotkey.text().strip()
         c.cleanup_enabled, c.auto_insert = self.cleanup.isChecked(), self.insert.isChecked()
         c.learn_corrections = self.learn.isChecked()
         c.streaming_enabled = self.live.isChecked()
@@ -384,9 +386,9 @@ class Window(QMainWindow):
         self.state = 'idle'
         self.working(False)
         self.models_status.setText('Ready • '+runtime.description)
-        self.status.setText(f'Ready • focus a text box and hold {self.c.hotkey} • microphone off')
+        self.status.setText(self.shortcut_instructions())
         if self.overlay.phase=='processing':
-            self.overlay.show_phase('done','Ready — hold shortcut',1800)
+            self.overlay.show_phase('done','Ready — use shortcut',1800)
 
     def ensure_live_ready(self):
         if not self.c.streaming_enabled: return True
@@ -442,7 +444,7 @@ class Window(QMainWindow):
             return
         try:
             c = self.settings()
-            self.win.arm(c.hotkey)
+            self.win.arm(c.hotkey, c.toggle_hotkey)
             try:
                 c.save(self.config_path)
             except Exception:
@@ -452,7 +454,7 @@ class Window(QMainWindow):
             self.pause.setText("Pause dictation")
             self.tray_pause.setText("Pause dictation")
             self.working(False)
-            self.status.setText(f"Ready • hold {self.c.hotkey} to speak • microphone off")
+            self.status.setText(self.shortcut_instructions())
             if c.streaming_enabled and (not self.runtime or not self.runtime.matches(c)):
                 self.prepare_live()
         except Exception as exc:
@@ -468,7 +470,27 @@ class Window(QMainWindow):
             control.setEnabled(True)
         self.status.setText("Paused • microphone off")
 
-    def pressed(self):
+    def shortcut_instructions(self):
+        text = f'Ready • hold {self.c.hotkey}'
+        if self.c.toggle_hotkey: text += f' or press {self.c.toggle_hotkey} to start / stop'
+        return text + ' • microphone off'
+
+    def recording_instructions(self):
+        if self.button_recording: return 'press Stop when finished'
+        if self.recording_shortcut == 'toggle': return f'press {self.c.toggle_hotkey} again to stop'
+        return f'release {self.c.hotkey} to stop'
+
+    def pressed(self, kind='hold'):
+        if kind not in ('hold','toggle') or not self.win.registered:
+            return
+        if kind == 'toggle' and not self.c.toggle_hotkey:
+            return
+        # MOD_NOREPEAT suppresses held-key repeats. A stop must work even if
+        # focus moved; the original target is checked again before insertion.
+        if self.state == 'recording':
+            if kind == 'toggle' and self.recording_shortcut == 'toggle' and not self.button_recording:
+                self.stop_requested = True
+            return
         if not self.win.registered or self.state != "idle" or self.pool.activeThreadCount():
             return
         self.stop_learning(finalize=True)
@@ -483,6 +505,7 @@ class Window(QMainWindow):
             self.overlay.show_phase('notice','Select a text box',2800)
             return
         self.button_recording = False
+        self.recording_shortcut = kind
         if not self.ensure_live_ready(): return
         self.begin_recording()
 
@@ -498,8 +521,8 @@ class Window(QMainWindow):
             self.live_offset = 0
             if self.c.streaming_enabled: self.start_stream()
             self.working(True)
-            self.record_button.setText("Stop recording" if self.button_recording else "Recording with shortcut")
-            self.status.setText("● Recording locally • release shortcut or press Stop")
+            self.record_button.setText("Stop recording")
+            self.status.setText('● Recording locally • '+self.recording_instructions())
             self.tray.setToolTip("Vowely • RECORDING")
             self.overlay.show_phase('listening')
         except Exception as exc:
@@ -590,11 +613,12 @@ class Window(QMainWindow):
                 self.abort()
                 self.status.setText("No audio received from the selected microphone. Choose another input in Microphone. A disconnected Bluetooth headset can appear active without delivering audio.")
                 return
-            self.status.setText(f"● Recording locally • microphone audio: {captured:.1f}s • {elapsed:.1f} / {self.c.max_seconds} seconds elapsed • press Stop when finished")
+            self.status.setText(f"● Recording locally • microphone audio: {captured:.1f}s • {elapsed:.1f} / {self.c.max_seconds} seconds elapsed • {self.recording_instructions()}")
             if self.live_session:
                 delta,self.live_offset = self.recorder.read_since(self.live_offset)
                 if delta: self.live_session.feed(delta)
-        released = self.state == "recording" and not self.button_recording and not self.win.down(self.win.vk)
+        released = (self.state == 'recording' and not self.button_recording
+                    and self.recording_shortcut == 'hold' and not self.win.shortcut_down('hold'))
         if self.state == "recording" and (released or self.stop_requested or self.recorder.full.is_set()):
             try:
                 pcm = self.recorder.stop()
@@ -620,9 +644,20 @@ class Window(QMainWindow):
                 self.abort()
                 self.status.setText("Recording failed or overflowed; discarded. Try a different input device.")
 
-    def finished(self, generation, result):
+    def finished(self, generation, result, key_deadline=None):
         if generation != self.generation or self.cancel.is_set():
             return
+        if self.target is not None and result.get('insertion_ready',not result['review']):
+            # Very short recognition can finish before the stop keys are lifted.
+            # Wait without blocking Qt, retaining all original focus checks.
+            if key_deadline is None: key_deadline = time.monotonic()+2
+            if (self.win.modifiers_down() or self.win.trigger_down()) and time.monotonic()<key_deadline:
+                self.state = 'processing'
+                self.working(True)
+                self.status.setText('Final text ready • release shortcut keys to type')
+                self.overlay.show_phase('processing','Release keys')
+                QTimer.singleShot(25,lambda:self.finished(generation,result,key_deadline))
+                return
         self.last_metrics = {key:result[key] for key in ('total_ms','tail_ms','asr_ms','gpu_used','cleanup_gpu_used','cpu_fallback') if key in result}
         self.state = "idle"
         self.live_session = None
