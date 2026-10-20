@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.3 — unreleased
+
+- Four or more delimiter commas automatically create a bullet list in Natural/Developer cleanup, without spoken layout commands.
+- Numeric separators, quoted text, parenthesised/code commas and written calendar dates do not count toward the threshold.
+- Qwen receives preformatted items; a local layout fallback preserves source items if cleanup merges the list back into prose. The original transcript remains available.
+- Live cleanup keeps comma-list context together and still waits for stable sentence endings. The published alpha.1 ZIP is unchanged.
+
 ## 0.1.0-alpha.2 — unreleased
 
 - Spoken bullet-list, numbered-list, new-paragraph and new-line cues in Natural/Developer cleanup.

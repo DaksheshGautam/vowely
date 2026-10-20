@@ -2,14 +2,93 @@ from pathlib import Path
 from array import array
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
+import threading
 
 from localflow.config import Config
-from localflow.engines import EngineError, cleanup_prompt, validate_cleanup
-from localflow.formatting import has_layout_cues, join_blocks
+from localflow.engines import Cleaner, EngineError, cleanup_prompt, validate_cleanup
+from localflow.formatting import comma_list_items, has_layout_cues, join_blocks
 from localflow.streaming import StreamingSession
+from localflow.resident import ResidentModels
 
 
 class FormattingTests(unittest.TestCase):
+    def test_four_commas_trigger_bullets_but_three_do_not(self):
+        raw = 'Milk, bread, eggs, rice, apples.'
+        expected = '- Milk\n- bread\n- eggs\n- rice\n- apples.'
+        self.assertEqual(validate_cleanup(raw,raw),expected)
+        self.assertEqual(validate_cleanup(raw,expected),expected)
+        short = 'Milk, bread, eggs, rice.'
+        self.assertEqual(comma_list_items(short),[])
+        self.assertEqual(validate_cleanup(short,short),short)
+
+    def test_commas_in_numeric_literals_dates_quotes_and_code_do_not_count(self):
+        for raw in ['Pay ₹5,000, ₹6,000, ₹7,000, ₹8,000.',
+                    'Meet October 20, 2026, bring milk, bread, eggs.',
+                    'Say "one, two, three, four, five", then leave.',
+                    "Say 'one, two, three, four, five', then leave.",
+                    'Use fn(a, b, c, d, e), then leave.',
+                    'Use `a,b,c,d,e`, then leave.',
+                    'Use ```a,b,c,d,e```, then leave.']:
+            with self.subTest(raw=raw): self.assertEqual(comma_list_items(raw),[])
+
+    def test_auto_list_keeps_protected_literals_and_item_order(self):
+        raw = 'Pay ₹5,000, meet October 20, 2026, call +91 98765 43210, update user_id, keep version 1.2.3.'
+        items = comma_list_items(raw)
+        self.assertEqual(len(items),5)
+        self.assertEqual(items[0],'Pay ₹5,000')
+        self.assertEqual(items[1],'meet October 20, 2026')
+        expected = '\n'.join('- '+item for item in items)
+        self.assertEqual(validate_cleanup(raw,raw),expected)
+        with self.assertRaises(EngineError): validate_cleanup(raw,expected.replace('₹5,000','₹6,000'))
+
+    def test_model_merging_items_falls_back_to_source_layout(self):
+        raw = 'Milk, bread, eggs, rice, apples.'
+        expected = '- Milk\n- bread\n- eggs\n- rice\n- apples.'
+        self.assertEqual(validate_cleanup(raw,'Milk and bread and eggs and rice and apples.'),expected)
+        self.assertEqual(validate_cleanup(raw,'- Milk and bread\n- Eggs and rice and apples.'),expected)
+
+    def test_auto_list_prompt_has_preformatted_items_without_spoken_cues(self):
+        for mode in ('Natural','Developer'):
+            prompt = cleanup_prompt('Milk, bread, eggs, rice, apples.',mode)
+            self.assertIn('four or more delimiter commas',prompt)
+            self.assertIn('- Milk\n- bread\n- eggs\n- rice\n- apples.',prompt)
+            self.assertNotIn('four or more delimiter commas',cleanup_prompt('Milk, bread, eggs, rice.',mode))
+
+    def test_explicit_layout_and_existing_lists_take_precedence(self):
+        self.assertEqual(comma_list_items('Numbered list. Milk, bread, eggs, rice, apples.'),[])
+        self.assertEqual(comma_list_items('- Milk, bread, eggs, rice, apples.'),[])
+        self.assertEqual(comma_list_items('Milk,, bread, eggs, rice, apples.'),[])
+
+    def test_live_comma_list_waits_for_stable_sentence_then_keeps_context(self):
+        raw = 'Buy milk, bread, eggs. Bring rice, apples, tea.'
+        session = StreamingSession(None,Config(cleanup_enabled=True),Path('.'))
+        with session._condition:
+            session._accept_snapshot(raw)
+            self.assertFalse(session._cleanup)
+            session._accept_snapshot(raw)
+            self.assertEqual(session._cleanup[0][2],raw)
+            session._accept_snapshot(raw+' Also tea',final=True)
+            self.assertEqual(session._cleanup[0][2],raw+' Also tea')
+
+    def test_rejected_or_unavailable_model_still_formats_source_without_rewriting(self):
+        raw = 'Pay ₹5,000, buy milk, buy bread, buy eggs, buy rice.'
+        expected = '- Pay ₹5,000\n- buy milk\n- buy bread\n- buy eggs\n- buy rice.'
+        config = Config(cleanup_enabled=True)
+        runtime = ResidentModels(config,Path('.'))
+        runtime.qwen = SimpleNamespace(request=lambda *args:{'content':raw.replace('₹5,000','₹6,000')},close=lambda:None)
+        self.addCleanup(runtime.close)
+        text,warning = runtime.clean(raw,config,threading.Event())
+        self.assertEqual(text,expected)
+        self.assertIn('rejected',warning)
+        self.assertIn('Local comma-list formatting applied',warning)
+        with patch('localflow.engines.require_file',side_effect=EngineError('Missing model')):
+            text,warning = Cleaner(config,Path('.')).clean(raw)
+        self.assertEqual(text,expected)
+        self.assertIn('Local comma-list formatting applied',warning)
+        for config in [Config(cleanup_enabled=False),Config(cleanup_enabled=True,mode='Verbatim')]:
+            self.assertEqual(runtime.clean(raw,config,threading.Event()),(raw,''))
+
     def test_added_sequential_list_markers_are_allowed(self):
         raw = 'Make a numbered list. Buy milk. Next point buy bread.'
         formatted = '1. Buy milk.\n2. Buy bread.'

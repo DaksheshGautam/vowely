@@ -1,4 +1,4 @@
-"""Spoken layout cues and conservative checks for generated list numbering."""
+"""Transcript layout rules and conservative checks for generated numbering."""
 import re
 
 
@@ -20,7 +20,7 @@ ITEM_CUE = (r'(?:(?:first|second|third|fourth|fifth)\s+(?:point|item)'
             r'|number\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+))')
 
 FORMAT_INSTRUCTIONS = (
-    ' Interpret explicit spoken layout cues only: "bullet list" or "bullet point" '
+    ' Interpret spoken layout cues: "bullet list" or "bullet point" '
     'starts bullets; "numbered list" starts a numbered list; "next point", "next item", '
     '"first point", "second point", or "number one", "number two" introduce items; '
     '"new paragraph" inserts a blank line; "new line" inserts a line break; '
@@ -36,6 +36,56 @@ FORMAT_INSTRUCTIONS = (
 
 def has_layout_cues(text):
     return bool(LAYOUT_CUE.search(text))
+
+
+def comma_list_items(text):
+    """Four delimiter commas trigger a list; literal/code commas do not count.
+
+    Use source offsets so prices, quotes and code survive exactly. This is a
+    layout heuristic, not a claim that commas always indicate an enumeration.
+    Explicit layout commands and existing lists take precedence.
+    """
+    if has_layout_cues(text) or any(LIST_LINE.match(line) for line in text.splitlines()):
+        return []
+    protected = [match.span() for match in NUMBER.finditer(text)]
+    literal = re.compile(r'```[\s\S]*?```|`[^`]*`|"[^"\n]*"|“[^”\n]*”|(?<!\w)\'[^\'\n]*\'(?!\w)')
+    protected += [match.span() for match in literal.finditer(text)]
+    # The comma in a written calendar date is punctuation, not an item boundary.
+    date = re.compile(r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},\s*\d{4}\b',re.IGNORECASE)
+    protected += [match.span() for match in date.finditer(text)]
+    separators,stack = [],[]
+    for offset,char in enumerate(text):
+        if any(start<=offset<end for start,end in protected): continue
+        if char in '([{': stack.append(char)
+        elif char in ')]}' and stack and '([{'.index(stack[-1])==')]}'.index(char): stack.pop()
+        elif char==',' and not stack: separators.append(offset)
+    if len(separators)<4: return []
+    cuts = [-1,*separators,len(text)]
+    items = [text[start+1:end].strip() for start,end in zip(cuts,cuts[1:])]
+    return items if all(items) else []
+
+
+def comma_list_text(items):
+    return '\n'.join('- '+item for item in items)
+
+
+def ensure_comma_list(raw,result):
+    """Keep the requested layout even when the small model returns prose."""
+    items = comma_list_items(raw)
+    if not items: return result
+    lines = [line for line in result.splitlines() if line.strip()]
+    if len(lines)==len(items) and all(re.match(r'^\s*[-*•]\s+\S',line) for line in lines):
+        return result
+    edited_items = comma_list_items(result)
+    # If cleanup merged boundaries, retain the source rather than guess items.
+    return comma_list_text(edited_items if len(edited_items)==len(items) else items)
+
+
+def preserved_cleanup(raw,warning):
+    """A model failure can still apply layout without rewriting any words."""
+    text = ensure_comma_list(raw,raw)
+    if text!=raw: warning += ' Local comma-list formatting applied; review required.'
+    return text,warning
 
 
 def content_length(text):

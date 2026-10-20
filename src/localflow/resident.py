@@ -18,6 +18,7 @@ import time
 import wave
 
 from .engines import Cancelled, EngineError, cleanup_prompt, require_file, validate_cleanup
+from .formatting import preserved_cleanup
 
 
 class ProcessOwner:
@@ -300,7 +301,7 @@ class ResidentModels:
         if cancel.is_set() or self.stop.is_set(): raise Cancelled('Cancelled')
         if not config.cleanup_enabled or config.mode=='Verbatim' or not raw.strip(): return raw,''
         if len(raw.encode('utf-8'))>2500:
-            return raw,'Cleanup skipped for a long phrase; original preserved.'
+            return preserved_cleanup(raw,'Cleanup skipped for a long phrase; original wording preserved.')
         try:
             payload = {'prompt':cleanup_prompt(raw,config.mode,config.personal_vocabulary),
                        'n_predict':1024,'temperature':0,'seed':1,'cache_prompt':False,
@@ -313,7 +314,7 @@ class ResidentModels:
         except Cancelled:
             raise
         except (OSError,EngineError):
-            return raw,'Cleanup unavailable or rejected; original phrase preserved.'
+            return preserved_cleanup(raw,'Cleanup unavailable or rejected; original wording preserved.')
 
     def close(self):
         self.ready = False
