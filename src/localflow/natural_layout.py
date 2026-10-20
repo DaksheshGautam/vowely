@@ -92,7 +92,10 @@ def prepare_layout(raw,splitter=None,vocabulary=()):
         items=[raw[m.end():(starts[n+1] if n+1<len(group) else last_end)].strip(' \t\r\n,;') for n,m in enumerate(group)]
         if all(items):
             start=first.start()
-            changes.append((start,last_end,'\n\n'+'\n'.join(f'{n}. '+item for n,item in enumerate(items,1))+'\n\n'))
+            styles=[m for m in re.finditer(r'\b(?:(bullet(?:ed)?|numbered)\s+list|end\s+list)\b',raw[:start],re.I) if not quoted(*m.span())]
+            bullet=bool(styles and (styles[-1][1] or '').lower().startswith('bullet'))
+            lines=[('- ' if bullet else f'{n}. ')+item for n,item in enumerate(items,1)]
+            changes.append((start,last_end,'\n\n'+'\n'.join(lines)+'\n\n'))
             anchors.extend((match.end(),item) for match,item in zip(group,items))
         i=j
     for intro in INTRO.finditer(raw):

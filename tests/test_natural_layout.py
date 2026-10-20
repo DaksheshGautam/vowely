@@ -31,6 +31,11 @@ class NaturalLayoutTests(unittest.TestCase):
         text,_=prepare_layout('Our dependencies include Alpha Kit Beta Works and Delta Suite.',vocabulary=['Alpha Kit','Beta Works','Delta Suite'])
         self.assertIn('- Alpha Kit\n- Beta Works\n- Delta Suite',text)
 
+    def test_explicit_bullet_style_takes_precedence_over_ordinal_item_words(self):
+        text,_=prepare_layout('Make a bullet list. First item milk. Second item bread.')
+        self.assertIn('- milk.\n- bread.',text)
+        self.assertNotIn('1. ',text)
+
     def test_unknown_items_can_use_a_source_checked_local_model_partition(self):
         splitter=Mock(return_value=json.dumps(['fast search','local cleanup','private storage']))
         text,_=prepare_layout('The features include fast search local cleanup and private storage.',splitter)
