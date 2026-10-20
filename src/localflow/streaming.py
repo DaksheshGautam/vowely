@@ -11,7 +11,7 @@ import re
 import threading
 import time
 
-from .engines import Cancelled, EngineError, pipeline
+from .engines import Cancelled, EngineError, cleanup_insertion_ready, pipeline
 from .formatting import comma_list_items, has_layout_cues, join_blocks
 
 
@@ -155,6 +155,7 @@ class StreamingSession:
         self._preview = None
         self._cleanup = deque()
         self._raw,self._clean = {},{}
+        self._clean_ready = {}
         self.sentences = SentenceBuffer()
         self._sentence_raw = {}
         self._previous_complete = []
@@ -251,6 +252,7 @@ class StreamingSession:
             self._cleanup.clear()
             self._clean = {i:text for i,text in self._clean.items()
                            if i<len(units) and self._sentence_raw.get(i)==units[i]}
+            self._clean_ready = {i:ready for i,ready in self._clean_ready.items() if i in self._clean}
             self._scheduled = set(self._clean)
         self._sentence_raw = dict(enumerate(units))
         self._previous_complete = complete
@@ -336,6 +338,7 @@ class StreamingSession:
                 self._clean_busy = False
                 if revision==self._revision:
                     self._clean[index] = text
+                    self._clean_ready[index] = cleanup_insertion_ready(raw,text,warning,self.c)
                     if warning: self._warnings.add(warning)
             self._emit()
         with self._condition: self._clean_busy = False
@@ -355,20 +358,22 @@ class StreamingSession:
                 self.runtime.close()
                 cpu = replace(self.c,gpu=False,whisper_exe='vendor/whisper/Release/whisper-cli.exe')
                 result = self.fallback(self._full_pcm,cpu,self.root,self.cancel)
-                result.update(review=True,cpu_fallback=True,gpu_used=False,cleanup_gpu_used=False)
+                result.update(review=True,insertion_ready=False,cpu_fallback=True,gpu_used=False,cleanup_gpu_used=False)
                 result['warning'] = 'Live mode failed; used local whole-recording CPU fallback. '+result['warning']
             else:
                 payload = self._snapshot()
                 result = {'raw':payload['raw'],'text':payload['text'],
                           'warning':' '.join(sorted(self._warnings)),
                           'review':bool(self._warnings) or (self.c.cleanup_enabled and self.c.mode!='Verbatim'),
+                          'insertion_ready':bool(payload['text'] and self._recheck_done and self._sentence_raw)
+                              and all(self._clean_ready.get(i,False) for i in self._sentence_raw),
                           'asr_ms':round(self._asr_seconds*1000),
                           'cpu_fallback':self.runtime.asr_cpu_fallback,
                           'cleanup_cpu_fallback':self.runtime.qwen_cpu_fallback,
                           'gpu_used':bool(self.runtime.asr and self.runtime.asr.gpu_confirmed),
                           'cleanup_gpu_used':bool(self.runtime.qwen and self.runtime.qwen.gpu_confirmed)}
                 if not result['raw']:
-                    result.update(warning='No speech detected. Nothing inserted.',review=True)
+                    result.update(warning='No speech detected. Nothing inserted.',review=True,insertion_ready=False)
             result.update(streaming=True,total_ms=round((time.monotonic()-self._started)*1000),
                           tail_ms=round((time.monotonic()-(self._stopped or self._started))*1000))
             return result
@@ -377,6 +382,7 @@ class StreamingSession:
                 self._full_pcm = b''
                 self._finals.clear();self._cleanup.clear()
                 self._raw.clear();self._clean.clear()
+                self._clean_ready.clear()
                 self._sentence_raw.clear();self.sentences.clear()
                 self._previous_complete.clear();self._scheduled.clear()
                 self._preview = None;self._partial = ''

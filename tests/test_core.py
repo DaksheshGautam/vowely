@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from localflow.config import Config
 from localflow.engines import (Cancelled, Cleaner, EngineError, Whisper, cleanup_prompt,
-                               pipeline, run_local, validate_cleanup)
+                               cleanup_insertion_ready, pipeline, run_local, validate_cleanup)
 from localflow.policy import Target, check_target, insertion_allowed
 from localflow.windows import parse_hotkey
 
@@ -70,6 +70,16 @@ class ConfigTests(unittest.TestCase):
 
 
 class EngineTests(unittest.TestCase):
+    def test_direct_final_insertion_requires_accepted_cleanup_and_unchanged_numbers(self):
+        config = Config(cleanup_enabled=True)
+        self.assertTrue(cleanup_insertion_ready('meet at 4','Meet at 4.','Cleanup requires review.',config))
+        self.assertTrue(cleanup_insertion_ready('meet at 4','Meet at 4.','Developer cleanup requires review.',config))
+        for text,warning in [('Meet at 5.','Cleanup requires review.'),
+                             ('meet at 4','Cleanup unavailable; original preserved.'),
+                             ('meet at 4','Cleanup requires review. Extra failure.'),('','Cleanup requires review.')]:
+            self.assertFalse(cleanup_insertion_ready('meet at 4',text,warning,config))
+        self.assertTrue(cleanup_insertion_ready('raw','raw','',Config()))
+
     def test_run_success_and_failure(self):
         self.assertIn("hello", run_local([sys.executable, "-c", "print('hello')"], 5))
         with self.assertRaises(EngineError):

@@ -193,7 +193,7 @@ class FormattingTests(unittest.TestCase):
             def transcribe(self,*args,**kwargs): return raw
             def clean(self,text,*args):
                 calls.append(text)
-                return validate_cleanup(text,expected),'Review'
+                return validate_cleanup(text,expected),'Cleanup requires review.'
             def close(self): pass
         pcm = array('h',[1000]*16000).tobytes()
         session = StreamingSession(Runtime(),Config(cleanup_enabled=True),Path('.'))
@@ -203,6 +203,7 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(result['text'],expected)
         self.assertEqual(result['raw'],raw)
         self.assertTrue(result['review'])
+        self.assertTrue(result['insertion_ready'])
 
 
 if __name__=='__main__': unittest.main()

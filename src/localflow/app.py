@@ -27,6 +27,7 @@ from .devices import microphones, default_input_label
 from .resident import ResidentModels
 from .streaming import StreamingSession
 from .version import APP_NAME, RELEASE_VERSION
+from .overlay import DictationOverlay
 
 
 class Signals(QObject):
@@ -137,6 +138,7 @@ class Window(QMainWindow):
         self.live_offset = 0
         self.live_sequence = 0
         self.replay_pcm = b''
+        self.overlay = DictationOverlay()
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
         self.setWindowTitle(f"{APP_NAME} {RELEASE_VERSION} • Offline dictation")
@@ -184,7 +186,8 @@ class Window(QMainWindow):
         self.all_inputs.toggled.connect(self.change_microphone_view)
         form.addRow("Microphone", self.mic)
         form.addRow(self.all_inputs)
-        self.cleanup = QCheckBox("Use local Qwen cleanup (review required)")
+        self.cleanup = QCheckBox("Use local Qwen cleanup")
+        self.cleanup.setToolTip('Final validated results can be typed into an approved field. Failed or rejected cleanup stays in the preview.')
         self.cleanup.setChecked(self.c.cleanup_enabled)
         form.addRow(self.cleanup)
         self.cleanup_backend = QComboBox()
@@ -195,7 +198,8 @@ class Window(QMainWindow):
         self.live.setChecked(self.c.streaming_enabled)
         self.live.setToolTip('No fixed silence wait. Sentence-ending punctuation must agree across two Whisper previews before Qwen cleans the sentence. Qwen does not decide boundaries. Stop rechecks the complete recording and cleans any unfinished text. Detection is approximate; preview checks and model processing take time. Final insertion happens only after Stop.')
         form.addRow(self.live)
-        self.insert = QCheckBox("Auto-insert into explicitly allowed fields")
+        self.insert = QCheckBox("Automatically type final results into approved fields")
+        self.insert.setToolTip('Waits for final Whisper recognition and Qwen cleanup. Never types provisional text. Requires field approval and unchanged focus.')
         self.insert.setChecked(self.c.auto_insert)
         form.addRow(self.insert)
         layout.addLayout(form)
@@ -213,6 +217,9 @@ class Window(QMainWindow):
         self.arm = QPushButton("Arm shortcut")
         self.arm.clicked.connect(self.toggle_arm)
         layout.addWidget(self.arm)
+        self.background = QPushButton('Run in background')
+        self.background.clicked.connect(self.run_background)
+        layout.addWidget(self.background)
         self.record_button = QPushButton("Record a test • preview only")
         self.record_button.clicked.connect(self.manual_record)
         layout.addWidget(self.record_button)
@@ -288,6 +295,12 @@ class Window(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def run_background(self):
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.hide()
+        else:
+            self.status.setText('No system tray is available. Minimise the window to use your shortcut.')
 
     def populate_microphones(self, selected):
         self.mic.clear()
@@ -368,6 +381,8 @@ class Window(QMainWindow):
             self.state = 'preparing'
             self.working(True)
             self.status.setText('Loading local models • microphone off')
+            if self.win.registered:
+                self.overlay.show_phase('processing','Loading models…')
             self.models_status.setText('Loading models into memory…')
             self.job = PrepareJob(self.generation,self.runtime,self.cancel)
             self.job.signals.prepared.connect(self.models_prepared)
@@ -384,6 +399,8 @@ class Window(QMainWindow):
         self.working(False)
         self.models_status.setText('Ready • '+runtime.description)
         self.status.setText('Models ready • click Record a test, or arm your shortcut • microphone off')
+        if self.overlay.phase=='processing':
+            self.overlay.show_phase('done','Ready — hold shortcut',1800)
 
     def ensure_live_ready(self):
         if not self.c.streaming_enabled: return True
@@ -413,6 +430,8 @@ class Window(QMainWindow):
         if payload.get('waiting_sentence') and not payload['asr_busy'] and not payload['cleanup_busy']:
             activity = 'Waiting for a stable Whisper sentence ending or Stop'
         self.models_status.setText(payload['warning'] or f"{activity} • {payload['cleaned_phrases']} sentences ready • {payload['pending_phrases']} queued • provisional until finished")
+        if self.state=='processing' and self.overlay.phase=='processing':
+            self.overlay.label = 'Cleaning…' if payload['cleanup_busy'] else 'Recognising…'
 
     def forget_result(self):
         if self.state != 'idle': self.abort()
@@ -470,6 +489,11 @@ class Window(QMainWindow):
         ok, why = check_target(self.target, self.c)
         if not ok and why in ("Password field blocked.", "Application is on the denylist.", "Sensitive field blocked."):
             self.status.setText(why + " Microphone remains off.")
+            self.overlay.show_phase('notice','Field blocked',2200)
+            return
+        if not ok and self.c.auto_insert:
+            self.status.setText(why+' Open Vowely, disarm, and allow the last inspected field before dictating here.')
+            self.overlay.show_phase('notice','Approve field in Vowely',2800)
             return
         self.button_recording = False
         if not self.ensure_live_ready(): return
@@ -489,9 +513,11 @@ class Window(QMainWindow):
             self.record_button.setText("Stop recording" if self.button_recording else "Recording with shortcut")
             self.status.setText("● Recording locally • release shortcut or press Stop")
             self.tray.setToolTip("Vowely • RECORDING")
+            self.overlay.show_phase('listening')
         except Exception as exc:
             self.abort()
             self.status.setText(f"Could not open the selected microphone: {exc}. Choose another input; some device variants do not support 16 kHz mono.")
+            self.overlay.show_phase('notice','Microphone unavailable',2500)
 
     def manual_record(self):
         if self.state == "recording":
@@ -571,6 +597,7 @@ class Window(QMainWindow):
         self.job.signals.error.connect(self.failed)
         self.pool.start(self.job)
         self.status.setText('Transcribing locally • microphone off')
+        self.overlay.show_phase('processing')
 
     def tick(self):
         if self.state == 'replaying':
@@ -585,6 +612,7 @@ class Window(QMainWindow):
                 self.status.setText('Finishing the last sentence • microphone off')
             return
         if self.state == "recording":
+            self.overlay.set_level(getattr(self.recorder,'input_level',0.0))
             elapsed = time.monotonic() - self.record_started
             captured = len(self.recorder.data) / 32000
             if elapsed >= 3 and captured == 0:
@@ -615,6 +643,7 @@ class Window(QMainWindow):
                     self.working(True)
                     self.live_session.finish_input(pcm)
                     self.status.setText('Finishing the last sentence • microphone off')
+                    self.overlay.show_phase('processing')
                 else: self.start_job(pcm)
             except Exception:
                 self.abort()
@@ -629,10 +658,18 @@ class Window(QMainWindow):
         self.working(False)
         self.preview.setPlainText(result["text"])
         self.original.setPlainText(result['raw'])
-        if result["review"]:
+        attempted = self.target is not None and result.get('insertion_ready',not result['review'])
+        inserted = False
+        if attempted:
+            inserted, message = self.win.insert(self.target, result["text"], self.c)
+        elif result["review"]:
             message = result["warning"] or "Review the cleaned text before copying."
         else:
-            _, message = self.win.insert(self.target, result["text"], self.c)
+            message = 'Preview ready • copy the result when ready.'
+        self.target = None  # Each recording can insert at most once.
+        self.overlay.show_phase('done' if inserted else 'notice',
+                                'Typed' if inserted else ('Focus changed — preview' if 'Focus changed' in message else ('Result in Vowely' if result['text'] else 'Nothing to type')),
+                                1100 if inserted else 2600)
         fallback = " GPU unavailable; CPU fallback used." if result["cpu_fallback"] else ""
         backend = ' NVIDIA CUDA active.' if result['gpu_used'] else ''
         timing = f"After Stop: {result['tail_ms']} ms." if result.get('streaming') else f"Local processing: {result['total_ms']} ms (includes model loading)."
@@ -647,8 +684,10 @@ class Window(QMainWindow):
         if generation == self.generation:
             self.abort()
             self.status.setText(message)
+            self.overlay.show_phase('notice','Could not finish',2500)
 
     def abort(self):
+        self.overlay.clear()
         self.cancel.set()
         self.generation += 1
         if self.live_session: self.live_session.abort()
@@ -682,8 +721,7 @@ class Window(QMainWindow):
         if self.quitting:
             event.accept()
         elif QSystemTrayIcon.isSystemTrayAvailable():
-            self.disarm()
-            self.hide()
+            self.run_background()
             event.ignore()
         else:
             self.quit()
@@ -695,6 +733,8 @@ class Window(QMainWindow):
         self.pool.waitForDone(3000)
         self.win.close()
         self.tray.hide()
+        self.overlay.clear()
+        self.overlay.close()
         QApplication.instance().quit()
 
 

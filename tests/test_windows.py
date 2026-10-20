@@ -56,6 +56,12 @@ class WindowsTests(unittest.TestCase):
         self.assertFalse(self.w.insert(self.target, "hello", self.c)[0])
         self.assertEqual(len(self.w.user.SendInput.calls), 1)
 
+    def test_multiline_uses_text_separators_without_enter_key_events(self):
+        self.assertTrue(self.w.insert(self.target,'A\r\nB\nC',self.c)[0])
+        events = [event for batch,_ in self.w.user.SendInput.calls for event in batch]
+        self.assertEqual([unit for unit,flags in events if flags==4],[65,0x2028,66,0x2028,67])
+        self.assertTrue(all(flags in (4,6) for _,flags in events))
+
 
 if __name__ == "__main__":
     unittest.main()

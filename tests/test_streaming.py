@@ -147,6 +147,26 @@ class StreamingTests(unittest.TestCase):
         self.assertTrue(result['cpu_fallback'])
         self.assertTrue(result['review'])
         self.assertNotIn('private',result['warning'])
+        self.assertFalse(result['insertion_ready'])
+
+    def test_revised_source_cannot_reuse_old_insertion_permission(self):
+        session = StreamingSession(Runtime(),Config(cleanup_enabled=True),Path('.'))
+        self.accept(session,'Meet at 4.')
+        self.accept(session,'Meet at 4.')
+        session._clean[0] = 'Meet at 4.'
+        session._clean_ready[0] = True
+        self.accept(session,'Meet at 5.',final=True)
+        self.assertFalse(session._clean_ready)
+        self.assertFalse(session._clean)
+
+    def test_any_rejected_final_unit_blocks_automatic_typing(self):
+        class Mixed(Runtime):
+            def transcribe(self,*args,**kwargs): return 'First sentence. Second sentence.'
+            def clean(self,raw,c,cancel):
+                return raw,('Cleanup requires review.' if raw.startswith('First') else 'Cleanup unavailable; original preserved.')
+        result = self.execute(StreamingSession(Mixed(),Config(cleanup_enabled=True),Path('.')),VOICE)
+        self.assertFalse(result['insertion_ready'])
+        self.assertTrue(result['review'])
 
     def test_cancel_clears_buffer_and_never_returns_partial(self):
         runtime = Runtime()

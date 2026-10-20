@@ -1,6 +1,7 @@
 import sys
 import types
 import unittest
+from array import array
 from unittest.mock import patch
 
 from localflow.audio import Recorder
@@ -76,6 +77,36 @@ class AudioTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             r.start()
         self.assertIsNone(r.stream)
+
+    def test_meter_tracks_current_input_and_resets_without_consuming_audio(self):
+        r = Recorder()
+        r.start()
+        callback = r.stream.kwargs['callback']
+        quiet = array('h',[100]*1024).tobytes()
+        loud = array('h',[10000]*1024).tobytes()
+        callback(quiet,1024,None,False)
+        quiet_level = r.input_level
+        self.assertEqual(quiet_level,0)
+        callback(loud,1024,None,False)
+        self.assertGreater(r.input_level,quiet_level)
+        self.assertLessEqual(r.input_level,1)
+        self.assertEqual(r.read_since(0)[0],quiet+loud)
+        with patch('localflow.audio.time.monotonic',return_value=r._level_at+1):
+            self.assertEqual(r.input_level,0)
+        self.assertEqual(r.stop(),quiet+loud)
+        self.assertEqual(r.input_level,0)
+
+    def test_quiet_background_keeps_meter_still_but_audio_is_preserved(self):
+        r = Recorder()
+        r.start()
+        callback = r.stream.kwargs['callback']
+        pcm = b''
+        for amplitude in (0,15,75,110,40,0):
+            block = array('h',[amplitude]*1024).tobytes()
+            callback(block,1024,None,False)
+            pcm += block
+            self.assertEqual(r.input_level,0)
+        self.assertEqual(r.stop(),pcm)
 
 
 if __name__ == "__main__":

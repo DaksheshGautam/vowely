@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.4 — unreleased
+
+- Final validated Qwen output can type once into an approved, still-focused field when automatic insertion is enabled. Drafts are never inserted or replaced; rejected/failed cleanup remains preview-only.
+- Nonactivating, click-through circle grows with voice loudness, with quiet-input gating and a completely still silent state; indeterminate loading ring during final recognition/cleanup; brief completion/refusal messages.
+- Multiline typing uses Unicode text separators, preserving bullet lines in the native editor check without sending Enter or using the clipboard. Rendering in other target controls varies.
+- Run in background and close-to-tray retain the armed shortcut. Tray Disarm and cancel and Quit retain their stop behavior.
+- Automatic-typing setup inspects unapproved shortcut fields without recording. Manual recording and WAV replay remain preview-only.
+- Added final-result, focus, stale-result, meter, overlay and background lifecycle regressions. Published alpha.1 release assets remain unchanged.
+
 ## 0.1.0-alpha.3 — unreleased
 
 - Four or more delimiter commas automatically create a bullet list in Natural/Developer cleanup, without spoken layout commands.

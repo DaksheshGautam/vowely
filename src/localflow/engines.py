@@ -26,6 +26,22 @@ class Cancelled(EngineError):
     pass
 
 
+def cleanup_insertion_ready(raw,text,warning,config):
+    """Only successful validated cleanup can bypass the review-only path.
+
+    Exact success messages form an allowlist: arbitrary failure/fallback text
+    never becomes an insertion permission, even if it contains the word review.
+    """
+    if not raw.strip() or not text.strip(): return False
+    if not config.cleanup_enabled or config.mode=='Verbatim':
+        return text==raw and not warning
+    if warning not in ('Cleanup requires review.','Developer cleanup requires review.'): return False
+    try:
+        return validate_cleanup(raw,text,config.personal_vocabulary)==text
+    except EngineError:
+        return False
+
+
 def run_local(args, timeout, cancel=None):
     # File-backed output avoids pipe deadlocks and unbounded in-memory logs.
     # No stdout/stderr is persisted after this context; errors omit transcript data.
@@ -200,7 +216,7 @@ class Cleaner:
                                    c.inference_timeout, cancel)
                 cleaned = validate_cleanup(raw, output, c.personal_vocabulary)
                 if c.mode == "Developer":
-                    # Never silently apply a rewrite to identifiers or code in the MVP.
+                    # The UI applies field approval and final-insertion policy.
                     return cleaned, "Developer cleanup requires review."
                 return cleaned, "Cleanup requires review."
         except Cancelled:
@@ -228,5 +244,7 @@ def pipeline(pcm, config, root, cancel=None):
     cleaned, warning = Cleaner(config, root).clean(raw, cancel)
     return {"raw": raw, "text": cleaned, "warning": warning, "asr_ms": round(asr_ms),
             "total_ms": round((time.perf_counter() - started) * 1000),
-            "review": cleaned != raw or bool(warning), "cpu_fallback": whisper.cpu_fallback,
+            "review": cleaned != raw or bool(warning),
+            "insertion_ready": cleanup_insertion_ready(raw,cleaned,warning,config),
+            "cpu_fallback": whisper.cpu_fallback,
             "gpu_used": whisper.gpu_used}

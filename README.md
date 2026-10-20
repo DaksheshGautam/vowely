@@ -2,7 +2,7 @@
 
 **v0.1.0-alpha.1 — Windows prerelease**
 
-The main branch also contains **0.1.0-alpha.3 development changes** for automatic comma lists and spoken list/paragraph formatting. Those changes are not included in the published alpha.1 ZIP.
+The main branch also contains **0.1.0-alpha.4 development changes** for final-result typing, a voice-reactive indicator, automatic comma lists and spoken formatting. Those changes are not included in the published alpha.1 ZIP.
 
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
@@ -24,7 +24,16 @@ For source installation or transferring an already provisioned folder to an offl
 - **Live preview:** Whisper shows provisional text while you speak. Sentence-ending punctuation must agree across two previews before the sentence is sent to Qwen. There is no required 1.2-second silence gap. Qwen cleans text; it does not decide sentence boundaries.
 - **Stop:** recognises the complete recording again using the chosen final quality, reconciles changed sentences, and processes any unfinished tail. This adds final processing time.
 - **Models:** choose CPU or NVIDIA CUDA for recognition and cleanup independently. **Free model memory** unloads resident workers. Cancel, Disarm, close-to-tray and Quit also stop them. Reload models before the next live recording.
-- **Tray:** closing the window disarms/cancels and leaves the tray icon. Launch again or use the tray to reopen it. Quit exits fully.
+- **Background:** arm the shortcut, then click **Run in background** or close the window to keep Vowely in the tray. The shortcut remains armed. Use the tray's **Disarm and cancel** to stop it, or **Quit** to exit. Launch again or use the tray to reopen the window.
+- **Indicator:** holding the shortcut shows a click-through circle that grows with voice loudness. Quiet input is gated visually; the circle settles to a small, completely still state during silence. This lightweight level gate does not change recorded audio or provide semantic speech detection. Releasing the shortcut changes the circle to a loading ring during final recognition/cleanup. It reports completion or a preview-only result without taking keyboard focus. The ring is an activity indicator, not a percentage estimate.
+
+## Type the final result into another app (alpha.4 development)
+
+Enable **Automatically type final results into approved fields** and Qwen cleanup. Arm the shortcut, click your intended text box and press the shortcut once. A new field is inspected without opening the microphone. Return to Vowely, disarm, click **Allow the last inspected field**, then arm again. Approval is for the executable and field ID; password/sensitive/unknown controls remain blocked.
+
+Click **Run in background**, focus that field, hold your shortcut while speaking, then release it. Stay in the same field while the loading ring runs. Vowely types the final validated Qwen result once, including list line breaks. Provisional text is never typed or replaced. No text is sent until the final result is ready, and neither insertion nor the indicator activates the settings window.
+
+Changed focus, held keys, rejected/unavailable cleanup, cancellation, unknown fields and model failures keep the result in Vowely for manual copying. Manual recording and WAV tests remain preview-only. Automatic typing can replace selected text just like ordinary typing; cleanup can still make mistakes even when validation passes.
 
 ## Modes
 
@@ -48,7 +57,7 @@ Formatting requests keep sentence context together, and Stop includes any unfini
 
 ## Insertion and privacy
 
-New installations start disarmed, with auto-insertion disabled and an empty field allowlist. Insertion requires an explicitly approved executable/field identity. Password, sensitive, unknown and changed targets refuse insertion. Cleanup results require review and manual copy. Live previews are never inserted. Completion does not steal focus, and automatic insertion does not use the clipboard.
+New installations start disarmed, with auto-insertion disabled and an empty field allowlist. Insertion requires an explicitly approved executable/field identity. Password, sensitive, unknown and changed targets refuse insertion. With automatic typing enabled, successfully validated final cleanup can be inserted; rejected or unavailable cleanup remains preview-only. Live previews are never inserted. Completion does not steal focus, and automatic insertion does not use the clipboard.
 
 Live workers listen only on protected `127.0.0.1` endpoints and are owned by the app. They stop on cancellation/unload/exit. Conventional CLI processing and CPU fallback use temporary local files. See [PRIVACY.md](PRIVACY.md) for retention and insertion limits.
 

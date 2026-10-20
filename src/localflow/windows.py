@@ -140,6 +140,10 @@ class Windows:
         # Qt/Windows may dispatch a surrogate-pair commit before BMP key packets
         # from the same batch. Fence astral characters into separate batches so
         # emoji keep their position. Recheck focus/keys at EVERY boundary.
+        # LF packets are ignored by some editors (including Qt). Unicode LINE
+        # SEPARATOR inserts a textual soft break without sending an Enter key,
+        # which could submit a chat/form. Never fall back to Return or paste.
+        text = text.replace('\r\n','\n').replace('\r','\n').replace('\n','\u2028')
         chunks = []
         pending = ''
         for char in text:
