@@ -33,11 +33,12 @@ class Config:
     personal_vocabulary: list[str] = field(default_factory=list)
     streaming_enabled: bool = False
     cleanup_gpu: bool = False
+    learn_corrections: bool = True
 
     def validate(self):
-        for value in (self.gpu, self.cleanup_enabled, self.auto_insert,self.streaming_enabled,self.cleanup_gpu):
+        for value in (self.gpu, self.cleanup_enabled, self.auto_insert,self.streaming_enabled,self.cleanup_gpu,self.learn_corrections):
             if type(value) is not bool:
-                raise ValueError("gpu, cleanup_enabled and auto_insert must be JSON booleans")
+                raise ValueError("Model, typing, streaming and learning switches must be JSON booleans")
         if self.asr_model not in ("base", "small"):
             raise ValueError("asr_model must be base or small")
         if self.mode not in ("Natural", "Verbatim", "Developer"):

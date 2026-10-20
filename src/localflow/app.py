@@ -29,6 +29,7 @@ from .streaming import StreamingSession
 from .version import APP_NAME, RELEASE_VERSION
 from .overlay import DictationOverlay
 from .branding import application_icon, identify_windows_app
+from .learning import EditSession, LearnedDictionary, MAX_SPAN
 
 
 class Signals(QObject):
@@ -126,6 +127,11 @@ class Window(QMainWindow):
         self.root, self.config_path = root, config_path
         self.c = Config.load(config_path)
         self.win = Windows()
+        self.dictionary = LearnedDictionary(root/'dictionary.json')
+        self.edit_session = None
+        self.edit_target = None
+        self.edit_pending = None
+        self.edit_next = 0.0
         self.state = "idle"
         self.target = None
         self.recorder = None
@@ -168,6 +174,17 @@ class Window(QMainWindow):
         self.vocabulary.setPlaceholderText('Your full name, people, product names — separated by commas')
         self.vocabulary.setToolTip('Stored only on this PC. Spelling hints can help recognition but cannot guarantee correct words.')
         form.addRow('Names and vocabulary', self.vocabulary)
+        self.learn = QCheckBox('Learn spelling corrections after dictation')
+        self.learn.setChecked(self.c.learn_corrections)
+        self.learn.setToolTip('For up to 60 seconds, checks only the recent insertion in the same focused text box. Saves corrected words locally after they settle. Password/sensitive fields are excluded.')
+        form.addRow(self.learn)
+        self.dictionary_button = QPushButton(f'Learned words ({len(self.dictionary.words)})')
+        self.dictionary_button.clicked.connect(self.manage_dictionary)
+        form.addRow(self.dictionary_button)
+        self.dictionary_status = QLabel('Corrected spellings stay on this PC.' if self.dictionary.available else 'Local dictionary could not be loaded; learning unavailable.')
+        self.dictionary_status.setTextFormat(Qt.PlainText)
+        self.dictionary_status.setWordWrap(True)
+        form.addRow(self.dictionary_status)
         self.backend = QComboBox()
         self.backend.addItems(["CPU", "NVIDIA CUDA (tested on this PC)"])
         self.backend.setCurrentIndex(1 if self.c.gpu else 0)
@@ -250,7 +267,7 @@ class Window(QMainWindow):
         self.setCentralWidget(scroll)
         self.controls = [self.mode, self.model, self.hotkey, self.mic, self.cleanup, self.insert,
                          self.backend, self.language, self.vad, self.all_inputs, self.search_quality, self.vocabulary,
-                         self.cleanup_backend,self.live]
+                         self.cleanup_backend,self.live,self.learn]
         self.native_filter = HotkeyFilter(self.pressed)
         QApplication.instance().installNativeEventFilter(self.native_filter)
         self.timer = QTimer(self)
@@ -322,6 +339,7 @@ class Window(QMainWindow):
         c.personal_vocabulary = list(dict.fromkeys(x.strip() for x in self.vocabulary.text().split(',') if x.strip()))
         c.hotkey, c.microphone = self.hotkey.text().strip(), self.mic.currentData()
         c.cleanup_enabled, c.auto_insert = self.cleanup.isChecked(), self.insert.isChecked()
+        c.learn_corrections = self.learn.isChecked()
         c.streaming_enabled = self.live.isChecked()
         c.cleanup_gpu = self.cleanup_backend.currentIndex() == 1
         gpu = self.backend.currentIndex() == 1
@@ -340,6 +358,7 @@ class Window(QMainWindow):
             control.setEnabled(not busy and not self.win.registered)
         self.preview.setReadOnly(busy)
         self.copy_button.setEnabled(not busy)
+        self.dictionary_button.setEnabled(not busy)
         self.record_button.setEnabled(self.state in ('idle','recording'))
         self.file_button.setEnabled(not busy)
         self.pause.setEnabled(self.win.registered or not busy)
@@ -405,7 +424,7 @@ class Window(QMainWindow):
         self.cancel = threading.Event()
         self.generation += 1
         self.live_sequence = 0
-        self.live_session = StreamingSession(self.runtime,copy.deepcopy(self.c),self.root,self.cancel)
+        self.live_session = StreamingSession(self.runtime,self.inference_config(),self.root,self.cancel)
         self.job = StreamJob(self.generation,self.live_session)
         self.job.signals.update.connect(self.live_update)
         self.job.signals.done.connect(self.finished)
@@ -478,6 +497,7 @@ class Window(QMainWindow):
     def pressed(self):
         if not self.win.registered or self.state != "idle" or self.pool.activeThreadCount():
             return
+        self.stop_learning()
         self.target = self.win.snapshot()
         ok, why = check_target(self.target, self.c)
         if not ok and why in ("Password field blocked.", "Application is on the denylist.", "Sensitive field blocked."):
@@ -494,6 +514,7 @@ class Window(QMainWindow):
 
     def begin_recording(self):
         try:
+            self.stop_learning()
             self.clear_text()
             self.recorder = Recorder(self.c.microphone, self.c.max_seconds)
             self.recorder.start()
@@ -566,7 +587,7 @@ class Window(QMainWindow):
         self.working(True)
         self.cancel = threading.Event()
         self.generation += 1
-        self.job = Job(self.generation, pcm, copy.deepcopy(self.c), self.root, self.cancel)
+        self.job = Job(self.generation, pcm, self.inference_config(), self.root, self.cancel)
         self.job.signals.done.connect(self.finished)
         self.job.signals.error.connect(self.failed)
         self.pool.start(self.job)
@@ -574,6 +595,8 @@ class Window(QMainWindow):
         self.overlay.show_phase('processing')
 
     def tick(self):
+        if self.state=='idle' and time.monotonic()>=self.edit_next:
+            self.poll_learning()
         if self.state == 'replaying':
             end = min(len(self.replay_pcm),int((time.monotonic()-self.record_started)*16000)*2)
             if end > self.live_offset:
@@ -636,6 +659,11 @@ class Window(QMainWindow):
         inserted = False
         if attempted:
             inserted, message = self.win.insert(self.target, result["text"], self.c)
+            if inserted and self.c.learn_corrections and self.dictionary.available and 0<len(result['text'])<=MAX_SPAN:
+                self.edit_target = self.target
+                self.edit_pending = result['text']
+                self.edit_session = EditSession(result['text'],time.monotonic())
+                self.edit_next = time.monotonic()+.4
             if inserted and result.get('cleanup_fallback'):
                 message += ' Cleanup partly unavailable or rejected; original words used for those portions.'
         elif self.target is None:
@@ -679,6 +707,7 @@ class Window(QMainWindow):
             self.overlay.show_phase('notice','Could not finish',2500)
 
     def abort(self):
+        self.stop_learning()
         self.overlay.clear()
         self.cancel.set()
         self.generation += 1
@@ -700,7 +729,69 @@ class Window(QMainWindow):
         self.tray.setToolTip("Vowely • microphone off")
         self.status.setText("Cancelled • microphone off")
 
+    def inference_config(self):
+        config = copy.deepcopy(self.c)
+        config.personal_vocabulary = self.dictionary.vocabulary(config.personal_vocabulary)
+        return config
+
+    def stop_learning(self):
+        if self.edit_session or self.edit_pending:
+            self.win.clear_correction_watch()
+        self.edit_session = self.edit_target = self.edit_pending = None
+        self.edit_next = time.monotonic()+.75
+
+    def poll_learning(self):
+        self.edit_next = time.monotonic()+.75
+        if not self.edit_session: return
+        if not self.c.learn_corrections or time.monotonic()>=self.edit_session.deadline:
+            self.stop_learning();return
+        text = self.win.correction_span(self.edit_target,self.c,self.edit_pending)
+        self.edit_pending = None
+        if text is None:
+            self.stop_learning();return
+        words = self.edit_session.observe(text,time.monotonic())
+        if not self.edit_session.active:
+            self.stop_learning();return
+        if words:
+            try:
+                learned = self.dictionary.add(words)
+                if learned:
+                    self.dictionary_status.setText('Learned locally: '+', '.join(learned))
+                    self.dictionary_button.setText(f'Learned words ({len(self.dictionary.words)})')
+            except OSError:
+                self.dictionary_status.setText('Could not save learned words; dictation is still available.')
+                self.stop_learning()
+
+    def manage_dictionary(self):
+        from PySide6.QtWidgets import QDialog, QListWidget, QAbstractItemView
+        self.stop_learning()
+        dialog = QDialog(self)
+        dialog.setWindowTitle('Vowely • learned words')
+        dialog.resize(400,360)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel('Stored locally. These spellings help future dictation.'))
+        words = QListWidget()
+        words.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        words.addItems(self.dictionary.words)
+        layout.addWidget(words)
+        remove = QPushButton('Remove selected words')
+        def remove_words():
+            try:
+                self.dictionary.remove([item.text() for item in words.selectedItems()])
+                words.clear();words.addItems(self.dictionary.words)
+                self.dictionary_button.setText(f'Learned words ({len(self.dictionary.words)})')
+                self.dictionary_status.setText('Corrected spellings stay on this PC.')
+            except OSError:
+                self.dictionary_status.setText('Could not update the local dictionary.')
+        remove.clicked.connect(remove_words)
+        layout.addWidget(remove)
+        close = QPushButton('Close')
+        close.clicked.connect(dialog.accept)
+        layout.addWidget(close)
+        dialog.exec()
+
     def clear_text(self):
+        self.stop_learning()
         self.preview.clear()
         self.original.clear()
 

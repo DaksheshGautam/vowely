@@ -1,6 +1,8 @@
 # Personal/local data and credentials
 config.json
 config.tmp
+dictionary.json
+dictionary.tmp
 .env
 .env.*
 !.env.example

@@ -12,6 +12,7 @@
 | engines.py | Existing CLI recognition/cleanup, conservative output validation and whole-recording CPU fallback |
 | windows.py / probe.py / policy.py | Explicit shortcut reservation, bounded UIA inspection, deny/allow rules, target identity checks and Unicode insertion without automatic clipboard use |
 | config.py | Validated settings and atomic local save |
+| learning.py | Debounced word corrections, in-memory watch, bounded local dictionary and per-request vocabulary |
 
 ## Live data flow
 
@@ -30,6 +31,12 @@ Native workers bind IPv4 loopback only. Whisper uses a random 192-bit URL prefix
 Workers belong to a Windows Job with KILL_ON_JOB_CLOSE. Unload, Clear, Cancel, Pause and Quit interrupt connections, kill workers and discard model context. The shortcut starts automatically. Closing settings preserves the shortcut and workers. The microphone's latest-block level is retained only as a scalar, expires when input stops and resets on Stop. Indicator windows neither activate nor receive mouse/keyboard input. A late process assignment after cancellation is rejected and killed. This is process lifecycle ownership, not an executable sandbox. Same-user malicious processes, OS pagefiles/dumps and physical memory recovery are outside the privacy guarantee.
 
 Conventional mode retains the original CLI path: each utterance loads its models and uses temporary WAV/JSON/prompt files removed on normal success/error/cancel. A crash may leave such files. Models and binaries are explicitly provisioned with pinned hashes; application runtime makes no external requests.
+
+## Correction learning
+
+After final insertion, a 60-second watch verifies the exact inserted text and collapsed caret in the existing disposable UIA helper, then polls every 750 ms. It tracks only the insertion and up to 24 unchanged following anchor characters. Some providers retain numeric endpoints when a corrected word changes length; the right anchor reconstructs the boundary with at most 64 characters of growth per observation. End-of-document insertions require a bounded move to still reach that end. Outside selections, changed identity, denied fields and ambiguous ranges stop the watch. No whole-field read or caret movement occurs.
+
+A two-second stable single-token replacement saves only the new spelling to dictionary.json. Token additions/deletions and multiword rewrites end the session; case/punctuation-only changes are ignored. Manual vocabulary plus recent learned spellings is copied into the next recording's configuration. Vocabulary is absent from the worker signature, so hints update without reloading Whisper/Qwen. In-flight requests retain their original settings. Clear/Cancel/Pause/new recording/expiry/focus change forget the baseline and helper range.
 
 ## Validation and limits
 

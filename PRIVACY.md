@@ -32,6 +32,14 @@ Capture is held in RAM, but CLI adapters create temporary WAV, JSON and cleanup 
 
 Use trusted engine binaries/DLLs and verified model hashes. External executables run with the user's permissions; this app is not an executable sandbox. Offline operation can be independently checked with Windows Firewall and network monitoring after provisioning. No outbound requests are needed for dictation.
 
+## Local correction learning
+
+`learn_corrections=true` watches successful automatic insertions of at most 2,000 characters for 60 seconds. The same focused field identity and password/sensitive/deny/read-only policy are checked before and after every bounded read. The watcher first verifies the exact insertion at a collapsed caret. It uses UIA TextPattern ranges, never whole-field Value or DocumentRange. Up to 24 following characters form an unchanged boundary anchor; each observation allows at most 64 characters of local growth plus that anchor. Unsupported, changed or ambiguous ranges stop learning. Provider queries retain the 350 ms timeout. No general typing log, keyboard hook or clipboard inspection is used.
+
+Insertion text, edits and boundary context stay in RAM during the watch and are discarded on expiry, leaving the field, moving outside the insertion, new recording, Clear, Cancel, Pause or Quit. A single-word replacement must settle for two seconds. Only its corrected spelling is atomically stored in plain local `dictionary.json` next to config.json, with a 128-word cap. No transcript, old spelling, field/application identity, timestamp or audio is stored in that file. A corrected word may still be private. Disabling learning stops new collection; remove existing words through **Learned words** to stop using their hints. Usual folder-sync, dumps and pagefile limitations apply.
+
+Learned spellings are hints to later local Whisper/Qwen requests, not forced replacements or model training. Manual vocabulary takes priority within the 32-hint request limit. Dictionary files are ignored by Git and rejected by release packaging. A corrupt dictionary is preserved and learning disabled rather than silently overwritten.
+
 ## Resident live mode
 
 Live workers listen only on 127.0.0.1. A fresh random secret protects Whisper inference URLs and a Bearer token protects Qwen inference. The native benchmark verifies unauthenticated inference is rejected. No proxy, redirects or external provider fallback are used. Audio and prompt request bodies are held in memory and native logs are discarded. Workers may retain inference context in RAM while loaded. Free model memory, Clear, Cancel, Pause and Quit terminate both workers and discard that context. Clear does not securely erase memory or remove text already copied to the Windows clipboard.

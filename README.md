@@ -2,7 +2,7 @@
 
 **v0.1.0-alpha.1 — Windows prerelease**
 
-The main branch also contains **0.1.0-alpha.7 development changes** for the lavender V app icon, automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
+The main branch also contains **0.1.0-alpha.8 development changes** for local spelling learning, the lavender V app icon, automatic startup, reliable final-result typing with source fallback, a voice-reactive indicator and formatting. Those changes are not included in the published alpha.1 ZIP.
 
 Offline personal dictation with global push-to-talk, live speech recognition, sentence-based text cleanup, and guarded cursor insertion. Built with Python, PySide6, whisper.cpp, llama.cpp, Whisper Base/Small, optional Silero VAD, and Qwen3-1.7B Q4_K_M.
 
@@ -34,6 +34,14 @@ Automatic final typing is enabled by default. Open Vowely, wait for model loadin
 Release the shortcut and stay in the same field while the loading ring runs. Vowely types the final validated Qwen result once, including list line breaks. Provisional text is never typed or replaced. No text is sent until the final result is ready, and neither insertion nor the indicator activates the settings window.
 
 If cleanup is rejected or unavailable, the unchanged recognized wording is used for those portions and final typing can continue; the indicator reports the source fallback. Rejected Qwen rewrites are never typed. Changed focus, held keys, cancellation, unknown fields and incomplete final recognition still prevent typing and show a specific reason. Manual recording and WAV tests remain preview-only. Automatic typing can replace selected text just like ordinary typing; cleanup can still make mistakes even when validation passes.
+
+## Learn from spelling corrections (alpha.8 development)
+
+After Vowely types a result, correct **one word at a time in that same box** and leave it unchanged for about two seconds. For 60 seconds after insertion, Vowely can learn settled single-word replacements. Only the corrected spelling is saved locally and supplied to subsequent Whisper/Qwen requests as a hint. Models are not retrained, and hints do not guarantee recognition. No model reload is needed.
+
+Learning is on by default. **Learned words** in settings lets you inspect/remove entries. Pause dictation and uncheck **Learn spelling corrections after dictation** to stop new learning. Existing hints remain until removed. Manual vocabulary has priority within the 32-hint request limit; the newest learned words fill remaining slots. At most 128 words are retained.
+
+Leaving the field, moving outside the insertion, new dictation, Clear, Cancel, Pause or Quit stops the watcher. Added/deleted words, multiword rewrites, numbers, case/punctuation-only edits and address/path components are ignored. Record-a-test/WAV previews do not learn. Compatible Windows UI Automation text ranges are required; unsupported or ambiguous ranges safely skip learning. Insertions over 2,000 characters are not watched. A small unchanged fragment after the insertion helps track its boundary; it is never saved. See [PRIVACY.md](PRIVACY.md).
 
 ## Modes
 

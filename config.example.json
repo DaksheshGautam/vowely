@@ -42,5 +42,6 @@
   "beam_size": 5,
   "personal_vocabulary": [],
   "streaming_enabled": true,
-  "cleanup_gpu": false
+  "cleanup_gpu": false,
+  "learn_corrections": true
 }

@@ -39,6 +39,10 @@ class Windows:
         self.vk = None
         self.uia = None
         self.probe = None
+        self._correction_range = None
+        self._correction_pattern = None
+        self._correction_suffix = ''
+        self._correction_size = 0
 
     def arm(self, key):
         if self.registered:
@@ -73,6 +77,97 @@ class Windows:
     def snapshot(self):
         self.prepare_probe()
         return self.probe.snapshot()
+
+    def correction_span(self,target,config,expected=None):
+        self.prepare_probe()
+        return self.probe.correction_span(target,config,expected)
+
+    def clear_correction_watch(self):
+        if self.probe: self.probe.clear_correction_watch()
+
+    def _correction_span_direct(self,target,config,expected=None):
+        """Track a verified insertion using at most 24 following anchor characters.
+
+        Some providers keep numeric endpoints when text length changes. Rebuild
+        the end from an unchanged local anchor, bounded to 64 characters of
+        growth per observation. Never read DocumentRange or the field value.
+        """
+        from .policy import same_target, check_target
+        from .learning import MAX_SPAN, normalized_text
+        try:
+            current = self._snapshot_direct()
+            if not same_target(target,current) or not check_target(current,config)[0]:
+                self._correction_range = self._correction_pattern = None
+                return None
+            if expected is not None:
+                self._correction_range = self._correction_pattern = None
+                expected = normalized_text(expected)
+                if not 0<len(expected)<=MAX_SPAN: return None
+                from comtypes.gen import UIAutomationClient as UIA
+                focused = self.uia.GetFocusedElement()
+                if tuple(focused.GetRuntimeId())!=target.runtime_id: return None
+                pattern = focused.GetCurrentPattern(10014).QueryInterface(UIA.IUIAutomationTextPattern)
+                selections = pattern.GetSelection()
+                if selections.Length!=1: return None
+                span = selections.GetElement(0).Clone()
+                if span.GetText(1): return None  # Caret only, never an existing selection.
+                moved = span.MoveEndpointByUnit(0,0,-len(expected))
+                if moved!=-len(expected): return None
+                if normalized_text(span.GetText(MAX_SPAN+1))!=expected: return None
+                tail = span.Clone()
+                tail.MoveEndpointByRange(0,span,1)
+                tail.MoveEndpointByUnit(1,0,24)
+                self._correction_suffix = normalized_text(tail.GetText(25))
+                if len(self._correction_suffix)>24: return None
+                self._correction_size = len(expected)
+                self._correction_range = span
+                self._correction_pattern = pattern
+            if self._correction_range is None: return None
+            selections = self._correction_pattern.GetSelection()
+            if selections.Length!=1:
+                self._correction_range = self._correction_pattern = None
+                return None
+            caret = selections.GetElement(0)
+            # Reject a cursor outside even the bounded correction region before
+            # reading. A small growth allowance handles a longer final word.
+            boundary = self._correction_range.Clone()
+            boundary.MoveEndpointByUnit(1,0,64)
+            if (caret.CompareEndpoints(0,self._correction_range,0)<0
+                    or caret.CompareEndpoints(1,boundary,1)>0):
+                self._correction_range = self._correction_pattern = None
+                return None
+            span = self._correction_range.Clone()
+            span.MoveEndpointByRange(1,span,0)
+            limit = min(MAX_SPAN+88,self._correction_size+88)
+            moved = span.MoveEndpointByUnit(1,0,limit)
+            nearby = normalized_text(span.GetText(limit+1))
+            suffix = self._correction_suffix
+            if suffix:
+                if nearby.count(suffix)!=1: return None
+                text = nearby[:nearby.index(suffix)]
+            else:
+                # Originally at end of document: a bounded move must still
+                # reach that end, or the region is no longer unambiguous.
+                if moved>=limit: return None
+                text = nearby
+            if not 0<len(text)<=MAX_SPAN:
+                self._correction_range = self._correction_pattern = None
+                return None
+            span.MoveEndpointByRange(1,span,0)
+            span.MoveEndpointByUnit(1,0,len(text))
+            if normalized_text(span.GetText(MAX_SPAN+1))!=text: return None
+            if caret.CompareEndpoints(1,span,1)>0: return None
+            # Accessibility calls can race a focus/security change; discard if so.
+            current = self._snapshot_direct()
+            if not same_target(target,current) or not check_target(current,config)[0]:
+                self._correction_range = self._correction_pattern = None
+                return None
+            self._correction_range = span
+            self._correction_size = len(text)
+            return text
+        except Exception:
+            self._correction_range = self._correction_pattern = None
+            return None
 
     def _snapshot_direct(self):
         try:

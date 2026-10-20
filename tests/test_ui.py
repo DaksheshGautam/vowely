@@ -267,6 +267,53 @@ class UiTests(unittest.TestCase):
             prepare.assert_called_once()
         self.window.win.registered = False
 
+    def test_dictionary_updates_next_request_without_changing_manual_settings(self):
+        self.window.c.personal_vocabulary = ['ManualName']
+        self.window.dictionary.add(['Jane'])
+        config = self.window.inference_config()
+        self.assertEqual(config.personal_vocabulary,['ManualName','Jane'])
+        self.assertEqual(self.window.c.personal_vocabulary,['ManualName'])
+
+    def test_successful_insertion_starts_watch_and_clear_discards_it(self):
+        from localflow.learning import EditSession
+        target = Target(100,5,'editor.exe',(1,2),'','Editor',False,True)
+        self.window.target = target
+        with patch.object(self.window.win,'insert',return_value=(True,'Inserted')):
+            self.window.finished(self.window.generation,self.final_result())
+        self.assertIsInstance(self.window.edit_session,EditSession)
+        self.assertEqual(self.window.edit_target,target)
+        with patch.object(self.window.win,'clear_correction_watch') as forget:
+            self.window.clear_text()
+            forget.assert_called_once()
+        self.assertIsNone(self.window.edit_session)
+
+    def test_failed_insertion_and_disabled_learning_do_not_start_watch(self):
+        for enabled,inserted in [(True,False),(False,True)]:
+            self.window.c.learn_corrections = enabled
+            self.window.target = object()
+            with patch.object(self.window.win,'insert',return_value=(inserted,'Test')):
+                self.window.finished(self.window.generation,self.final_result())
+            self.assertIsNone(self.window.edit_session)
+
+    def test_settled_word_is_saved_and_changed_focus_clears_watch(self):
+        from localflow.learning import EditSession
+        self.window.edit_session = EditSession('Meet Jan today.',0)
+        self.window.edit_target = object()
+        self.window.edit_pending = 'Meet Jan today.'
+        with patch.object(self.window.win,'correction_span',return_value='Meet Jane today.'), \
+             patch('localflow.app.time.monotonic',return_value=1) as now:
+            self.window.poll_learning()
+            now.return_value = 4
+            self.window.poll_learning()
+        self.assertEqual(self.window.dictionary.words,['Jane'])
+        self.assertIn('Learned locally',self.window.dictionary_status.text())
+        with patch.object(self.window.win,'correction_span',return_value=None), \
+             patch('localflow.app.time.monotonic',return_value=5), \
+             patch.object(self.window.win,'clear_correction_watch') as forget:
+            self.window.poll_learning()
+            forget.assert_called_once()
+        self.assertIsNone(self.window.edit_session)
+
 
 if __name__ == "__main__":
     unittest.main()
